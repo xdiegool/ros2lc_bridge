@@ -1,0 +1,11 @@
+1. Generator queries master for all avail. topics and generates pkg.
+   This include creating equivalent labcomm types.
+   Use static config file to some extent.
+
+2. Request comes in over lc. conf. channel and requests a topic.
+
+   Req. format:
+   Query: topic name
+
+3. If no ros::subscriber exists, then create one.
+   Otherwise $(reuse or create another one anyway?).

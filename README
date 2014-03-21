@@ -1,0 +1,42 @@
+This is a bridge that enables exporting and importing topics to/from a ROS
+system. The bridge sits inside the ROS system. Thus, traffic going towards
+other nodes in the ROS system is referred to traffic on the "inside" of the
+bridge, while traffic going towards other nodes outside the ROS system is
+referred to as traffic on the "outside" of the bridge.
+
+
+                     +----------------------+
+                     |         ROS          |
+                     |                   +--------+
+                     |               <== |        | <====
+                     |               IN  | BRIDGE |  OUT
+                     |               ==> |        | =====>
+                     |                   +--------+
+                     +----------------------+
+
+Traffic on the outside is currently send via LabComm over TCP (although there
+are plans to extend this to other transport layers in the future.
+
+
+RUNNING BRIDGE
+    The bridge can be run as:
+
+        $ rosrun generator generator.py -c path/to/config/file.xml
+
+    It can also be run with the --help parameter to display info about other
+    parameters.
+
+RUNNING ROS/LC PINGPONG
+    First start the ROS node:
+
+        $ rosrun ros_pingpong pingpong.py
+
+    Then run and start the generated bridge (say it was generated with the name
+    test_bridge):
+
+        $ rosrun test_bridge main.py
+
+    Lastly, start the lc_pingpong node and everything should work:
+
+        $ ./src/pingpong.py
+

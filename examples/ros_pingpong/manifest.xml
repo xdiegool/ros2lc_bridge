@@ -1,0 +1,15 @@
+<package>
+  <description brief="ros_pingpong">
+
+     ros_pingpong
+
+  </description>
+  <author>erik</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/ros_pingpong</url>
+  <depend package="rospy"/>
+
+</package>
+
+
