@@ -1,0 +1,14 @@
+<bridge name="test" port="7357">
+  <topics_in>
+    <topic name="/pong" />
+  </topics_in>
+
+  <topics_out>
+    <topic name="/rosout" />
+    <topic name="/ping" />
+  </topics_out>
+
+  <services>
+    <all />
+  </services>
+</bridge>
