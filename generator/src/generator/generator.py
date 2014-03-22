@@ -347,12 +347,13 @@ def run(conf, ws, force):
 
     topics_in, topics_out = cf.assert_defined(list(topics))
     services_used = cf.assert_defined_services(list(services))
+    topics_types = { t: topics[t] for t in topics_in + topics_out }
 
     (cfd, cnam) = mkstemp('.xml')
     cfil = os.fdopen(cfd, 'w')
     write_conf(cfil, cf.name, cf.port,
-               topics_in, topics_out, topics,
-               services, cf.static, cf.conversions)
+               topics_in, topics_out, topics_types,
+               services_used, cf.static, cf.conversions)
     cfil.close()
 
     req_topics = {}
