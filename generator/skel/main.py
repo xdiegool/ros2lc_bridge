@@ -301,7 +301,7 @@ class ClientThread(threading.Thread):
         """Handles incoming subscribe request from the client."""
         topic = id2msg(sub.topic)
 
-        if topic in conf.TOPICS_IN:
+        if topic in conf.TOPICS_OUT:
             rospy.loginfo('Accepted subscribe request for topic: %s', topic)
 
             typ = ttmap[topic]
@@ -326,7 +326,7 @@ class ClientThread(threading.Thread):
         """Handles incoming publish request from the client."""
         topic = id2msg(pub.topic)
 
-        if topic in conf.TOPICS_OUT:
+        if topic in conf.TOPICS_IN:
             rospy.loginfo('Accepted publish for: %s', topic)
             self.pubs[topic] = rospy.Publisher(topic, topic_types_py[topic])
         elif topic in pseudotopic_sinks:
