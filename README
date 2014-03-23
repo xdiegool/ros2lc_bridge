@@ -32,7 +32,7 @@ INTRODUCTION
 RUNNING BRIDGE
     The bridge can be run as:
 
-        $ rosrun generator generator.py -c path/to/config/file.xml
+        $ rosrun generator generator.py -c examples/pingpong_conf.xml
 
     It can also be run with the --help parameter to display info about other
     parameters.
@@ -50,4 +50,3 @@ RUNNING ROS/LC PINGPONG
     Lastly, start the lc_pingpong node and everything should work:
 
         $ ./src/pingpong.py
-

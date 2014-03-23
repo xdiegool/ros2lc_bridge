@@ -1,4 +1,4 @@
-<bridge name="test" port="7357">
+<bridge name="test_bridge" port="7357">
   <topics_in>
     <topic name="/ping" />
   </topics_in>
