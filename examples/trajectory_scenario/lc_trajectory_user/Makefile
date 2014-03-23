@@ -15,4 +15,4 @@ clean:
 	rm -fr $(LC_GEN_DIR)
 
 genbridge:
-	rosrun test_140214 generator.py -c conf.xml --force
+	rosrun generator generator.py -c conf.xml --force
