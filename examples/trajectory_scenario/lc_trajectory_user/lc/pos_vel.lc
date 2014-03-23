@@ -1,0 +1,15 @@
+typedef struct {
+	float x;
+	float y;
+	float z;
+} position;
+
+typedef struct {
+	float dx;
+	float dy;
+	float dz;
+	float dt;
+} velocity;
+
+sample position posRef;
+sample velocity velRef;

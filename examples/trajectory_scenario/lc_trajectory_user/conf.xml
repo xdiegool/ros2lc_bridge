@@ -1,0 +1,56 @@
+<bridge name="traj" port="7357">
+  <topics_in>
+	<topic name="/velX" />
+	<topic name="/velY" />
+	<topic name="/velZ" />
+	<topic name="/velT" />
+  </topics_in>
+
+  <topics_out>
+	<topic name="/posX" />
+	<topic name="/posY" />
+	<topic name="/posZ" />
+  </topics_out>
+
+  <services>
+  </services>
+
+  <conversions>
+
+	<!-- Conversion of incoming position. -->
+	<conversion>
+	  <lc path="lc/pos_vel.lc" />
+	  <py path="conv/pos_vel_conv.py" function="convert_pos_in" />
+	  <trig_policy type="full" />
+	  <!-- <trig_policy type="single" />-->
+	  <!-- <trig_policy type="periodic" period="1.0" />-->
+	  <!-- <trig_policy type="custom" path="conv/pos_vel_conv.py" function="do_trigger" />-->
+	  <sources>
+		<sample name="posRef" pseudotopic="/pt_posRef" />
+	  </sources>
+	  <destinations>
+		<topic name="/posX" />
+		<topic name="/posY" />
+		<topic name="/posZ" />
+	  </destinations>
+	</conversion>
+
+	<!-- Conversion of outgoing velocities. -->
+	<conversion>
+	  <lc path="lc/pos_vel.lc" />
+	  <py path="conv/pos_vel_conv.py" function="convert_vel_out" />
+	  <trig_policy type="custom" path="conv/pos_vel_conv.py" function="do_trigger" />
+	  <!-- <trig_policy type="full" />-->
+	  <sources>
+		<topic name="/velX" />
+		<topic name="/velY" />
+		<topic name="/velZ" />
+		<topic name="/velT" />
+	  </sources>
+	  <destinations>
+		<sample name="velRef" pseudotopic="/pt_velRef" />
+	  </destinations>
+	</conversion>
+
+  </conversions>
+</bridge>

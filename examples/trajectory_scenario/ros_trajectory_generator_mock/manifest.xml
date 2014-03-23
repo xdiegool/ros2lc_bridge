@@ -1,0 +1,17 @@
+<package>
+  <description brief="ros_trajectory_generator_mock">
+
+     ros_trajectory_generator_mock is used to demonstrate a use case
+	 for the bridge generator (test_140214). It is a (mock) trajectory
+	 controller using a slightly weird topic configuration in order to
+	 test some features of the test_140214 package.
+
+  </description>
+  <author>Tommy</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/ros_trajectory_generator_mock</url>
+
+  <depend package="std_msgs" />
+
+</package>

@@ -1,0 +1,3 @@
+lc_trajectory_user is the external part of the
+ros_trajectory_generator_mock experimental use case for the
+ros2lc_bridge package. Run `make genbridge` to generate the bridge.
