@@ -255,7 +255,8 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
 
         lcc = os.environ.get('LABCOMMC')
         if not lcc:
-            raise Exception("Env. $LABCOMMC not set, can't compile types.")
+            raise GeneratorException("Env. $LABCOMMC not set, can't compile types."
+                                     " (Should be path to labcomm compiler jar-file.)")
         for f in os.listdir(lcdir):
             name = os.path.splitext(f)[0]
             lcfile = os.path.join(lcdir, f)
