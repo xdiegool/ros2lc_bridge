@@ -346,7 +346,8 @@ def run(conf, ws, force):
     del types
 
     topics_in, topics_out = cf.assert_defined(list(topics))
-    services_used = cf.assert_defined_services(list(services))
+    services_used = {s: services[s] for s in
+                     cf.assert_defined_services(list(services))}
     topics_types = { t: topics[t] for t in topics_in + topics_out }
 
     (cfd, cnam) = mkstemp('.xml')
