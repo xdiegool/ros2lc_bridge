@@ -237,17 +237,30 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
     try:
         lcdir = os.path.join(d, 'lc')
         srcdir = os.path.join(d, 'src')
-        skel_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'skel')
+        skeldir = os.path.join(os.path.dirname(__file__), '..', '..', 'skel')
+        skelcodedir = os.path.join(skeldir, 'src')
+        skeltypesdir = os.path.join(skeldir, 'lc')
 
+        # Move created type definitions to generated package.
         os.mkdir(lcdir)
         os.rename(lc_file, os.path.join(lcdir, 'lc_types.lc'))
-        sh('cp %s/*.py %s/' % (skel_dir, srcdir))
+        # Copy skeleton code to package.
+        for f in os.listdir(skelcodedir):
+            shutil.copy2(os.path.join(skelcodedir, f), srcdir);
+        # Copy types for bridge commands to package.
+        for f in os.listdir(os.path.join(skeldir, 'lc')):
+            shutil.copy2(os.path.join(skeltypesdir, f), lcdir);
+        # Move generated configuration code to package.
         os.rename(conf_file, os.path.join(srcdir, 'conf.py'))
 
         lcc = os.environ.get('LABCOMMC')
         if not lcc:
             raise Exception("Env. $LABCOMMC not set, can't compile types.")
-        sh('java -jar %s --python=%s/lc_types.py %s/lc_types.lc ' % (lcc, srcdir, lcdir))
+        for f in os.listdir(lcdir):
+            name = os.path.splitext(f)[0]
+            lcfile = os.path.join(lcdir, f)
+            pyfile = os.path.join(srcdir, name + '.py')
+            sh('java -jar %s --python=%s %s' % (lcc, pyfile, lcfile))
 
         # Copy user stuff for manual conversion.
         for lc in mlc:

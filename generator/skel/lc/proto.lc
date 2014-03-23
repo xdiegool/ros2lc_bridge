@@ -1,0 +1,9 @@
+typedef struct {
+	string topic;
+} pubsub;
+
+sample pubsub subscribe;
+sample pubsub unsubscribe;
+
+sample pubsub publish;
+sample pubsub unpublish;

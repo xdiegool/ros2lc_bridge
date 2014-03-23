@@ -1,0 +1,6 @@
+string config
+string[] file_names
+string[] file_contents
+---
+bool done
+string path
