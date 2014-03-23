@@ -18,7 +18,7 @@ class Conversion(object):
         self.lc_path = None
         self.py_path = None
         self.py_func = None
-        self.trig_policy = {}
+        self.trig_policy = {'type': 'full'}
         self.sources_sample = []      # [(sample_name, pseudotopic)]
         self.sources_topic = []
         self.destinations_sample = [] # [(sample_name, pseudotopic)]

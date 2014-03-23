@@ -1,0 +1,20 @@
+<bridge name="export_topics_plus_ftpt" port="7357">
+  <topics_in>
+	<all />
+  </topics_in>
+
+  <conversions>
+	<conversion>
+	  <lc path="lc/ft.lc" />
+	  <py path="conv/ft_conv.py" function="convert_ft" />
+	  <sources>
+		<topic name="/force_torque" />
+	  </sources>
+	  <destinations>
+		<sample name="force" pseudotopic="/force_pt" />
+		<sample name="torque" pseudotopic="/torque_pt" />
+	  </destinations>
+	</conversion>
+
+  </conversions>
+</bridge>

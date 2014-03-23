@@ -1,0 +1,14 @@
+<package>
+  <description brief="ros_ft_pub">
+
+     ros_ft_pub
+
+  </description>
+  <author>Tommy</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/ros_ft_pub</url>
+
+  <depend package="geometry_msgs"/>
+
+</package>
