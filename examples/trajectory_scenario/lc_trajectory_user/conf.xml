@@ -12,9 +12,6 @@
 	<topic name="/posZ" />
   </topics_out>
 
-  <services>
-  </services>
-
   <conversions>
 
 	<!-- Conversion of incoming position. -->
