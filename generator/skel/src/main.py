@@ -139,6 +139,9 @@ class Conversion(object):
             self.examine_cache()
 
     def _send(self, vals):
+        if vals is None:
+            return
+
         for t in self.topics_out:
             self.pubs[t].publish(vals[t])
         for s, pt in self.samples_out:

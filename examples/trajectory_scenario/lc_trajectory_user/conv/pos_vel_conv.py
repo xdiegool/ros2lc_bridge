@@ -14,19 +14,24 @@ def convert_pos_in(**kwarg):
 
 # Convert outgoing velocity data:
 def convert_vel_out(**kwarg):
-    vr = velRef()
-    vr.dx = kwarg['/velX'].data
-    vr.dy = kwarg['/velY'].data
-    vr.dz = kwarg['/velZ'].data
-    vr.dt = kwarg['/velT'].data
-
-    return {'/pt_velRef': vr}
+    if (kwarg['/velX'] and
+        kwarg['/velY'] and
+        kwarg['/velZ'] and
+        kwarg['/velT']
+       ):
+        vr = velRef()
+        vr.dx = kwarg['/velX'].data
+        vr.dy = kwarg['/velY'].data
+        vr.dz = kwarg['/velZ'].data
+        vr.dt = kwarg['/velT'].data
+        return {'/pt_velRef': vr}
+    else:
+        return None
 
 # Decide whether to trigger send or not
 def do_trigger(**kwarg):
     vr = velRef()
-    vr.dx = kwarg['/velX'].data
-    if vr.dx != None:
+    if kwarg['/velX'] is not None:
         return True
     return False
 
