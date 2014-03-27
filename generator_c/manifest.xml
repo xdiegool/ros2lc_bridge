@@ -1,0 +1,15 @@
+<package>
+  <description brief="test_140214">
+
+     test_140214 is a utility which can be used to generate a bridge
+	 which exposes selected topics and services to external
+	 programs. This format used is LabComm and the protocol is
+	 currently TCP. Support for additional protocols is planned.
+
+  </description>
+  <author>Tommy</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/test_140214</url>
+
+</package>

@@ -1,0 +1,27 @@
+<bridge name="test" port="7357">
+  <topics_in>                   <!-- Topics which can be subscribed to by the bridge node. -->
+	<all />	                    <!-- All topics existing at the time of generation. -->
+  </topics_in>
+
+  <topics_out>                  <!-- Topics which can be published by the bridge node. -->
+	<topic name="/rosout" />	<!-- Published topics must be explicitly specified. TODO: Why?-->
+	<topic name="/ping" />
+  </topics_out>
+
+  <services>				    <!-- ROS services can be exported. -->
+	<all />						<!-- Allow all services to be invoked externally. -->
+  </services>
+
+  <static-connections>
+    <!-- Subscribe and publish above are seen from the node specified in target's perspective,
+         i.e. which topics _it_ wants to subscribe and publish to. Is this a good idea? -->
+    <target addr="192.168.1.101:1337">
+      <subscribe name="/pong" />
+      <subscribe name="/rosout" />
+      <publish name="/ping" />
+    </target>
+    <target addr="127.0.0.1:8080">
+      <subscribe name="/rosout" />
+    </target>
+  </static-connections>
+</bridge>
