@@ -1,9 +1,12 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "rosgraph_msgs/Log.h"
 
 #include <exception>
-#include <cstring>
+#include <algorithm>
+// #include <iostream>
 
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -36,21 +39,24 @@ public:
 		addr.sin_port        = htons(PORT);
 		addr.sin_addr.s_addr = htonl(INADDR_ANY);
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
-		if (ret)
+		if (ret) {
+			close(sock);
 			throw std::runtime_error("bind() failed.");
+		}
 
-		// ret = listen(socket, 5);
-		// if (ret)
-		//     throw std::runtime_error("listen() failed.");
+		ret = listen(sock, 5);
+		if (ret) {
+			close(sock);
+			throw std::runtime_error("listen() failed.");
+		}
 	}
 
 	~LabCommBridge()
 	{
-		ROS_INFO("Closing");
 		close(sock);
 	}
 
-    void serve();
+	void serve();
 };
 
 void LabCommBridge::serve()

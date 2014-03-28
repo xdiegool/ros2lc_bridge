@@ -4,6 +4,7 @@ PROJ_NAME = 'generator'       # TODO: Is there an api for this?
 
 import roslib; roslib.load_manifest(PROJ_NAME)
 from rosgraph.masterapi import Master
+import std_msgs
 import re
 from os.path import basename
 from os.path import splitext
@@ -27,8 +28,6 @@ SRV_RET_SUFFIX = '_RET'
 conf_defines = '''#ifndef {pkg_name}_CONF_C
 #define {pkg_name}_CONF_C
 
-void convert(const std_msgs::String::ConstPtr& msg);
-
 #define PKG_NAME "{pkg_name}"
 #define PORT     ({port})
 #define SLASHSUB "{slash_substitute}"
@@ -38,15 +37,23 @@ void convert(const std_msgs::String::ConstPtr& msg);
 //SERVICES    = {services}
 //STATIC_CONNS = {static_connections}
 //CONV        = {conversions}
+
+extern "C" {{
+void alloc_array(void **, size_t, size_t);
+}}
 '''
 
-subscriber_cb_fn = '''
+subscriber_cb_fn_begin = '''
 ros::Subscriber {topic_name}Sub;
 void {topic_name}Callback(const {topic_type}::ConstPtr& msg)
 {{
-\tROS_INFO("I heard: %s", msg->data.c_str());
-\tconvert(msg);
-}}'''
+//\tROS_INFO("I heard: %s", msg->data.c_str());
+\tlc_types_{topic_type_lc} conv;
+'''
+
+subscriber_cb_fn_end = '''
+//\tconvert(msg);
+}''' # may need another } later
 
 register_cb_fn_def = '''
 void setup_callbacks(ros::NodeHandle &n)
@@ -110,13 +117,18 @@ def get_types():
     ttdict = dict(master.getTopicTypes())
     return ttdict
 
+defs_cache = {}
 
 def get_def(tnam):
     """Invoke the ros utility which returns the message type definitions."""
+    if tnam in defs_cache:
+        return defs_cache[tnam]
+
     ok, out = sh('rosmsg show %s' % tnam)
     for r in cleanup:
         out = r.sub('', out)
-    return out.strip()
+    defs_cache[tnam] = out.strip()
+    return defs_cache[tnam]
 
 
 def get_srv_def(snam):
@@ -316,6 +328,7 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
         with open('%s/CMakeLists.txt' % d, 'a') as buildfile:
             buildfile.write('''
 rosbuild_add_executable(main
+    src/hack.c
     src/main.cpp
     src/lc_types.c
     src/proto.c
@@ -357,9 +370,15 @@ def write_conf(f, bname, port, topics_in, topics_out, topics, services,
     # Subscriber callbacks
     for topic in topics_out:
         topic_name = topic.split('/')[1]
-        topic_type = topics[topic].replace('/', '::')
-        f.write(subscriber_cb_fn.format(topic_name=topic_name,
-                                        topic_type=topic_type))
+        topic_type = topics[topic]
+        topic_type_cpp = topic_type.replace('/', '::')
+        topic_type_lc = msg2id(topic_type)
+        topic_python = topic_type.replace('/', '.')
+        f.write(subscriber_cb_fn_begin.format(topic_name=topic_name,
+                                              topic_type=topic_type_cpp,
+                                              topic_type_lc=topic_type_lc))
+        write_type(f, get_def(topic_type))
+        f.write(subscriber_cb_fn_end)
 
     # Write setup_callback function
     f.write(register_cb_fn_def)
@@ -368,6 +387,56 @@ def write_conf(f, bname, port, topics_in, topics_out, topics, services,
         f.write(subscribe_to_topic.format(topic_name=topic_name))
     f.write(end_fn)
     f.write('\n#endif')
+
+splitter = re.compile(r'[ =]')
+
+def write_type(f, definition, prefix = ''):
+    def write_string(f, name, prefix = ''):
+        if prefix == -1: # ugly, hacky string
+            res = '\tconv.{name} = strdup(msg->{name}.data.c_str());\n'
+            prefix = ''
+        else: # nested string
+            res = '\tconv.{name} = strdup(msg->{name}.c_str());\n'
+        f.write(res.format(name = prefix + name))
+
+    def write(f, typ, name, prefix = ''):
+        if prefix:
+            prefix += '.'
+
+        if typ == 'string': # string
+            write_string(f, name, prefix)
+        elif '[]' in typ: # array type
+            non_array_type = typ.replace('[]', '')
+            res = ('\tconv.{name}.n_0 = msg->{name}.size();\n'
+                   # '\tconv.{name}.a = ({cpp_type}*)calloc(conv.{name}.n_0, sizeof(msg->{name}[0]));\n'
+                   '\talloc_array((void **)conv.{name}.a, conv.{name}.n_0, sizeof(msg->{name}[0]));\n'
+                   '\tfor (size_t i = 0; i < msg->{name}.size(); i++) {{\n'
+                   '\t\tstd::cout << "here" << std::endl;\n'
+                   '\t\tconv.{name}.a[i] = strdup(msg->{name}[i].c_str());\n\t}}')
+            f.write(res.format(name = prefix + name))
+        else:
+            if typ == 'time': # ros::Time
+                res =('\tconv.{name}.secs = msg->{name}.sec;\n'
+                      '\tconv.{name}.nsecs = msg->{name}.nsec;\n')
+            else:
+                res = '\tconv.{name} = msg->{name};\n'
+
+            f.write(res.format(name = prefix + name))
+
+    defs = definition.split('\n')
+    for d in defs:
+        (typ, tail) = (lambda x: (x[0], x[1:]))(splitter.split(d))
+        print typ, tail
+        if typ == 'string' and len(defs) == 1: # ugly hack to get stuff to work...
+            write(f, typ, tail[0], -1)
+        elif len(get_nested(typ)) > 0: # non-primitive type
+            write_type(f, get_def(typ), tail[0])
+        else:
+            write(f, typ, tail[0], prefix)
+
+        # f.write('\n\tstd::cout << conv.{name} << std::endl;'
+        #         .format( name=dlist[1]))
+
 
 def get_srv_types():
     slist = sh('rosservice list')[1]
