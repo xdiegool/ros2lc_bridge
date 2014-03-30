@@ -141,12 +141,12 @@ def convert_service_def(nam, defn, f):
     if defn[0]:
         convert_msg_body(defn[0], '%s' % pnam, f);
     else:
-        f.write('typedef dummy %s;\n\n' % msg2id(pnam))
+        f.write('typedef void %s;\n\n' % msg2id(pnam))
 
     if defn[1]:
         convert_msg_body(defn[1], '%s' % rnam, f);
     else:
-        f.write('typedef dummy %s;\n\n' % msg2id(rnam))
+        f.write('typedef void %s;\n\n' % msg2id(rnam))
 
 
 def longest_id(itr):
@@ -165,7 +165,6 @@ def write_lc(topics, defs, services, service_defs, f):
     f.write('''
 typedef struct { int secs; int nsecs; } time;        /* ROS primitive */
 typedef struct { int secs; int nsecs; } duration;    /* ROS primitive */
-typedef struct { byte __dummy__; } dummy;                                  /* TODO: void cannot be typedef:ed */
 ''')
 
     # Message types
@@ -207,7 +206,7 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue, ecol=red):
         # sys.stderr.write(ecol(re_indent.sub(r'\t\1', err)))
         sys.stdout.write(ocol(out))
         sys.stderr.write(ecol(err))
-    ok = not p.returncode and not err
+    ok = not p.returncode # and not err
     if not ok and crit:
         if err and pr:          # Program printed its error properly.
             raise GeneratorException("")
@@ -405,7 +404,8 @@ if __name__ == '__main__':
         sys.stderr.write(red("Specify config file.\n"))
         sys.exit(1)
     try:
-        run(opt.conf, opt.ws, opt.force)
+        d = run(opt.conf, opt.ws, opt.force)
+        print("Bridge package created in %s" % d)
     except (GeneratorException, ConfigException, IOError) as e:
         sys.stderr.write(red(e) + '\n')
     except ET.ParseError as e:
