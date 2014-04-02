@@ -12,25 +12,16 @@ extern "C" {
 
 static void subscribe_callback(proto_subscribe *v, void *ctx)
 {
-	std::cout << "before cpp callback" << std::endl;
 	((client *) ctx)->handle_subscribe(v);
-	std::cout << "in labcomm callback" << std::endl;
 }
 
 static void publish_callback(proto_publish *v, void *ctx)
 {
-	std::cout << "before cpp callback" << std::endl;
 	((client *) ctx)->handle_publish(v);
-	std::cout << "in labcomm callback" << std::endl;
 }
 
-static void ping_callback(lc_types_S__ping *v, void *ctx)
-{
-	std::cout << "got ping" << std::endl;
-}
-
-
-client::client(int client_sock) : sock(client_sock)
+client::client(int client_sock, ros::NodeHandle &n)
+	: sock(client_sock), n(n)
 {
 	struct labcomm_reader *r;
 	struct labcomm_writer *w;
@@ -58,7 +49,9 @@ client::client(int client_sock) : sock(client_sock)
 
 	labcomm_decoder_register_proto_subscribe(dec, subscribe_callback, this);
 	labcomm_decoder_register_proto_publish(dec, publish_callback, this);
-	labcomm_decoder_register_lc_types_S__ping(dec, ping_callback, this);
+
+	setup_imports();
+	setup_exports();
 }
 
 void client::run()
@@ -79,4 +72,7 @@ void client::handle_publish(proto_publish *pub)
 {
 	std::cout << "Got subscribe message for topic: " << pub->topic << std::endl;
 }
+
+// Include generated code
+#include "conv.cpp"
 

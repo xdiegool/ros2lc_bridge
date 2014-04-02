@@ -25,6 +25,7 @@ SLASHSUB            = 'S__'
 SRV_PAR_SUFFIX      = '_PAR'
 SRV_RET_SUFFIX      = '_RET'
 CONVERSION_FILENAME = 'conv.cpp'
+CLIENT_FILENAME     = 'client.h'
 CONFIG_FILENAME     = 'conf.h'
 
 conf_content = '''#ifndef {pkg_name}_CONF_C
@@ -42,29 +43,73 @@ conf_content = '''#ifndef {pkg_name}_CONF_C
 #endif
 '''
 
-gen_defines = '''#ifndef {pkg_name}_GEN_C
-#define {pkg_name}_GEN_C
+client_defines = '''#ifndef {pkg_name}_CLIENT_C
+#define {pkg_name}_CLIENT_C
+
+#include "ros/ros.h"
 
 extern "C" {{
-void alloc_array(void **, size_t, size_t);
-}}'''
+#include <labcomm.h>
 
-msgs_include = '''
+#include "proto.h"
+#include "lc_types.h"
+
+void alloc_array(void **, size_t, size_t);
+}}
+
+'''
+
+client_include = '''
 #include "{topic_type}.h"'''
 
-class_define = '''
-class LabCommBridgeImpl : public LabCommBridge {'''
+client_lc_callbacks = '''
+void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx);'''
 
-class_subscriber_members = '''
-\tros::Subscriber {topic_name}Sub;'''
+client_class = '''
+class client {
+	int sock;
+    ros::NodeHandle &n;
+	struct labcomm_decoder *dec;
+	struct labcomm_encoder *enc;
+	struct labcomm_reader *r;
+	struct labcomm_writer *w;
 
-class_constructor_start = '''
+'''
+
+client_subscriber_members = '''
+\tros::Subscriber {topic_name}Sub;
+\tvoid {topic_name}_ros_callback(const {topic_type}::ConstPtr& msg);'''
+
+client_publisher_members = '''
+\tros::Publisher {topic_name}Pub;'''
+
+client_functions = '''
 public:
-\tLabCommBridgeImpl() : LabCommBridge()
-\t{'''
-class_constructor_register = '''
-\t\t{topic_name}Sub = this->n.subscribe("{topic_name}", 1, &LabCommBridgeImpl::{topic_name}Callback, this);
-\t\t'''
+    client(int sock, ros::NodeHandle &n);
+	~client()
+	{
+		labcomm_decoder_free(dec);
+		labcomm_encoder_free(enc);
+	}
+
+	void run();
+	void handle_subscribe(proto_subscribe *subs);
+	void handle_publish(proto_publish *pub);
+
+    void setup_exports() {'''
+
+subscribe = '''
+\t\t{topic_name}Sub = n.subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
+\t\tlabcomm_encoder_register_lc_types_{topic_name}(enc);
+'''
+
+publish_fn = '''
+void setup_imports() {'''
+
+publish = '''
+\t\t{topic_name}Pub = n.advertise<{topic_type_cpp}>("{ros_topic_name}", 10);
+\t\tlabcomm_decoder_register_lc_types_{topic_name}(dec, {topic_name}_lc_callback, NULL);
+'''
 
 class_end = '''
 };
@@ -73,14 +118,13 @@ class_end = '''
 '''
 
 subscriber_cb_fn_begin = '''
-\tvoid {topic_name}Callback(const {topic_type}::ConstPtr& msg)
-\t{{
-\t\t// Convert received ROS data.
-\t\tlc_types_{topic_type_lc} conv;
+void client::{topic_name}_ros_callback(const {topic_type}::ConstPtr& msg)
+{{
+\t// Convert received ROS data.
+\tlc_types_{topic_name} conv;
 '''
 
-end_fn = '''
-\t}
+end_fn = '''}
 '''
 
 ros_prim = {
@@ -279,7 +323,8 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue, ecol=red):
     return (ok, out)
 
 
-def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file, mlc, mpy):
+def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
+               client_file, mlc, mpy):
     """Create ROS package in the first dicectory in $ROS_PACKAGE_PATH, or /tmp/, unless explicitly specified."""
     if not ws:
         pkg_path = os.environ.get('ROS_PACKAGE_PATH')
@@ -317,6 +362,8 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file, mlc, mpy):
         os.rename(conf_file, os.path.join(srcdir, CONFIG_FILENAME))
         # Move generated conversion code to package.
         os.rename(conv_file, os.path.join(srcdir, CONVERSION_FILENAME))
+        # Move generated client definition to package.
+        os.rename(client_file, os.path.join(srcdir, CLIENT_FILENAME))
 
         # Make sure LabComm library env exists.
         lclibpath = os.environ.get('LABCOMM')
@@ -388,15 +435,16 @@ def write_conf(f, bname, port, topics_in, topics_out, topics, services,
                                 static_connections=static_conns,
                                 conversions=convs))
 
-def write_conv(f, pkg_name, topics_in, topics_out, topics_types, services,
-               static_conns, conversions):
-    '''Writes the implementation of the LabCommBridge.
+def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
+               topics_types, services, static_conns, conversions):
+    '''Writes the definition of the client class as well as conversion code.
 
-    The LabCommBridgeImpl handles subscribing to and publishing on topics as
-    well as converting received messages/samples and sending them out the
-    opposite way (i.e.  ROS->LC or LC->ROS).
+    The client class handles subscribing to and publishing on topics as well as
+    converting received messages/samples and sending them out the opposite way
+    (i.e.  ROS->LC or LC->ROS).
 
-    :param f: the file to write output to.
+    :param clientf: the file to write the client definition to.
+    :param convf: the file to write converision code to.
     :param pkg_name: string with the name of the package.
     :param topics_in: a list topics imported into the ROS system.
     :param topics_out: a list topics exported from the ROS system.
@@ -406,56 +454,169 @@ def write_conv(f, pkg_name, topics_in, topics_out, topics_types, services,
     :param conversions: a list of conversions specified by the user (obsolete in C++)
     '''
     # Write define stuff
-    f.write(gen_defines.format(pkg_name=pkg_name))
+    clientf.write(client_defines.format(pkg_name=pkg_name))
+
+    # Write one function declaration (LC callback) per publisher
+    for topic in topics_in:
+        topic_name = msg2id(topic)
+        clientf.write(client_lc_callbacks.format(topic_name=topic_name))
 
     # Write one include per msg needed.
-    for topic in topics_out:
+    for topic in topics_out + topics_in:
         topic_type = topics_types[topic]
-        f.write(msgs_include.format(topic_type=topic_type))
+        clientf.write(client_include.format(topic_type=topic_type))
 
     # Write class definition
-    f.write(class_define)
+    clientf.write(client_class)
 
-    # Write one class member for each subscriber.
+    # Write class members (ROS callback) for each subscriber.
     for topic in topics_out:
-        topic_name = topic.split('/')[1]
-        f.write(class_subscriber_members.format(topic_name=topic_name))
+        topic_name = msg2id(topic)
+        topic_type_cpp = topics_types[topic].replace('/', '::')
+        clientf.write(client_subscriber_members.format(topic_name=topic_name,
+                                                       topic_type=topic_type_cpp))
+
+    for topic in topics_in:
+        topic_name = msg2id(topic)
+        topic_type_cpp = topics_types[topic].replace('/', '::')
+        clientf.write(client_publisher_members.format(topic_name=topic_name,
+                                                       topic_type=topic_type_cpp))
 
     # Write setup in constructor.
-    f.write(class_constructor_start)
+    clientf.write(client_functions)
     for topic in topics_out:
-        topic_name = topic.split('/')[1]
-        f.write(class_constructor_register.format(topic_name=topic_name,
-                                                  topic_name_lc=msg2id(topic)))
-    f.write(end_fn)
+        clientf.write(subscribe.format(topic_name=msg2id(topic),
+                                       ros_topic_name=topic))
+    clientf.write('\t' + end_fn)
+
+    clientf.write(publish_fn)
+    for topic in topics_in:
+        topic_name = msg2id(topic)
+        topic_type_cpp = topics_types[topic].replace('/', '::')
+        clientf.write(publish.format(topic_name=topic_name,
+                                     topic_type_cpp=topic_type_cpp,
+                                     ros_topic_name=topic))
+    clientf.write('\t' + end_fn)
+
+    clientf.write(class_end)
 
     # Write subscriber callbacks.
     for topic in topics_out:
-        topic_name = topic.split('/')[1]
+        topic_name = msg2id(topic)
         topic_type = topics_types[topic]
         topic_type_cpp = topic_type.replace('/', '::')
-        f.write(subscriber_cb_fn_begin.format(topic_name=topic_name,
-                                              topic_type=topic_type_cpp,
-                                              topic_type_lc=msg2id(topic)))
-        free_list = write_conversion(f, topic, get_def(topic_type))
-        write_send(f, topic)
-        write_free(f, free_list)
-        f.write(end_fn)
+        convf.write(subscriber_cb_fn_begin.format(topic_name=topic_name,
+                                                  topic_type=topic_type_cpp))
+        free_list = write_conversion(convf, topic, get_def(topic_type))
+        write_send(convf, topic)
+        write_free(convf, free_list)
+        convf.write(end_fn)
 
-    f.write(class_end)
+    for topic in topics_in:
+        write_lc2ros(convf, topics_types, topic, get_def(topics_types[topic]))
 
-convert_array_start = '''\t\tconv.{name}.n_0 = msg->{name}.size();
-\t\talloc_array((void **)&conv.{name}.a, conv.{name}.n_0,
-\t\t            sizeof(msg->{name}[0]));
-\t\tfor (size_t i = 0; i < msg->{name}.size(); i++) {{
+
+lc2ros_cb_fn_begin = '''
+void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx)
+{{
+\t{cpp_topic_type} msg;
+'''
+
+def write_lc2ros(convf, topic_types, topic, definition):
+    topic_type_cpp = topic_types[topic].replace('/', '::')
+    convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
+                                          cpp_topic_type=topic_type_cpp))
+    lc2ros_conversion(convf, topic, definition)
+    convf.write(end_fn)
+
+lc2ros_convert_array = '''\tmsg.{name}.assign(sample->{name}.n_0, sample->{name}.a);
+'''
+lc2ros_convert_array_start = '''\tmsg.{name}.clear();
+\tfor (int i = 0; i < sample->{name}.n_0; i++) {{
+'''
+
+lc2ros_convert_array_str = '''
+\t\tmsg.{name}.push_back(sample->{name}.a[i]);
+'''
+
+lc2ros_convert_array_normal = '''
+\t\tmsg.{name}.push_back(sample->{name}.a[i]);
+'''
+
+def lc2ros_conversion(f, topic, definition, prefix = ''):
+
+    def write_string(f, full_name, in_array = False):
+        '''Helper function for writing conversion code for strings.'''
+        if in_array: # string in array
+            # res = '\t\tmsg.{name}[i] = sample->{name}.a[i];\n'
+            res = lc2ros_convert_array_str
+        else: # nested string
+            # free_list.append('conv.{name}'.format(name=full_name))
+            res = '\tmsg.{name} = sample->{name};\n'
+        f.write(res.format(name=full_name))
+
+    def write_time_duration(f, full_name, in_array = False):
+        '''Helper function for writing conversion code for Time or Duration
+        (which are primitive types in ROS msgs).
+        '''
+        if in_array:
+            res = ('\t\tmsg.{name}[i].sec = sample->{name}.a[i].secs;\n'
+                   '\t\tmsg.{name}[i].nsec = sample->{name}.a[i].nsecs;\n')
+        else:
+            res = ('\tmsg.{name}.sec = sample->{name}.secs;\n'
+                   '\tmsg.{name}.nsec = sample->{name}.nsecs;\n')
+        f.write(res.format(name=full_name))
+
+    def write_array(f, full_name, typ):
+        '''Helper function for writing conversion code for arrays.'''
+        # free_list.append('conv.{name}.a'.format(name=full_name))
+        # res = ''
+        if typ == 'string':
+            f.write(lc2ros_convert_array_start.format(name=full_name))
+            write_string(f, full_name, True)
+            f.write('\t' + end_fn)
+        elif typ == 'time' or typ == 'duraiton':
+            f.write(lc2ros_convert_array_start.format(name=full_name))
+            write_time_duration(f, full_name, True)
+            f.write('\t' + end_fn)
+        else:
+            f.write(lc2ros_convert_array.format(name=full_name))
+        # f.write(res.format(name=full_name))
+
+    for d in definition.split('\n'):
+        # Extract type info from definition.
+        (typ, tail) = (lambda x: (x[0], x[1:]))(splitter.split(d))
+        name = tail[0]
+        if len(tail) > 1: # Skip enum
+            continue
+        if prefix:
+            name = prefix + '.' + name
+        if len(get_nested(typ)) > 0: # non-primitive type, recurse
+            lc2ros_conversion(f, topic, get_def(typ), name)
+        else: # primitive type
+            if typ == 'string':
+                write_string(f, name)
+            elif '[]' in typ:
+                write_array(f, name, typ.replace('[]', '').lower())
+            elif typ == 'time' or typ == 'duration':
+                write_time_duration(f, name)
+            else: # primitive types, just copy
+                res = '\tmsg.{name} = sample->{name};\n'
+                f.write(res.format(name=name))
+
+
+convert_array_start = '''\tconv.{name}.n_0 = msg->{name}.size();
+\talloc_array((void **)&conv.{name}.a, conv.{name}.n_0,
+\t            sizeof(msg->{name}[0]));
+\tfor (size_t i = 0; i < msg->{name}.size(); i++) {{
 '''
 
 convert_array_copy = '''
-\t\t\tconv.{name}.a[i] = msg->{name}[i];
+\t\tconv.{name}.a[i] = msg->{name}[i];
 '''
 
 convert_array_copy_str = '''
-\t\t\tconv.{name}.a[i] = strdup(msg->{name}[i].c_str());
+\t\tconv.{name}.a[i] = strdup(msg->{name}[i].c_str());
 '''
 convert_array_end = '\t\t}}\n'
 
@@ -474,10 +635,10 @@ def write_conversion(f, topic, definition, prefix = ''):
     def write_string(f, full_name, in_array = False):
         '''Helper function for writing conversion code for strings.'''
         if in_array: # string in array
-            res = '\t\t\tconv.{name}.a[i] = strdup(msg->{name}[i].c_str());\n'
+            res = '\t\tconv.{name}.a[i] = strdup(msg->{name}[i].c_str());\n'
         else: # nested string
             free_list.append('conv.{name}'.format(name=full_name))
-            res = '\t\tconv.{name} = strdup(msg->{name}.c_str());\n'
+            res = '\tconv.{name} = strdup(msg->{name}.c_str());\n'
         f.write(res.format(name=full_name))
 
     def write_time_duration(f, full_name, in_array = False):
@@ -485,11 +646,11 @@ def write_conversion(f, topic, definition, prefix = ''):
         (which are primitive types in ROS msgs).
         '''
         if in_array:
-            res = ('\t\t\tconv.{name}.a[i].secs = msg->{name}[i].sec;\n'
-                   '\t\t\tconv.{name}.a[i].nsecs = msg->{name}[i].nsec;\n')
+            res = ('\t\tconv.{name}.a[i].secs = msg->{name}[i].sec;\n'
+                   '\t\tconv.{name}.a[i].nsecs = msg->{name}[i].nsec;\n')
         else:
-            res = ('\t\tconv.{name}.secs = msg->{name}.sec;\n'
-                   '\t\tconv.{name}.nsecs = msg->{name}.nsec;\n')
+            res = ('\tconv.{name}.secs = msg->{name}.sec;\n'
+                   '\tconv.{name}.nsecs = msg->{name}.nsec;\n')
         f.write(res.format(name=full_name))
 
     def write_array(f, full_name, typ):
@@ -504,7 +665,7 @@ def write_conversion(f, topic, definition, prefix = ''):
         elif typ == 'time' or typ == 'duraiton':
             write_time_duration(f, full_name, True)
         else:
-            res = '\t\t\tconv.{name}.a[i] = msg->{name}[i];\n'
+            res = '\t\tconv.{name}.a[i] = msg->{name}[i];\n'
         res += convert_array_end
         f.write(res.format(name=full_name))
 
@@ -524,7 +685,7 @@ def write_conversion(f, topic, definition, prefix = ''):
             elif typ == 'time' or typ == 'duration':
                 write_time_duration(f, name)
             else: # primitive types, just copy
-                res = '\t\tconv.{name} = msg->{name};\n'
+                res = '\tconv.{name} = msg->{name};\n'
                 f.write(res.format(name=name))
 
     return free_list
@@ -537,13 +698,9 @@ def write_send(f, topic):
     :param topic: the topic being converted.
     '''
     lc_topic = msg2id(topic)
-    f.write(('\t\t// Send converted data.\n'
-             '\t\t//if (this->e) {{\n'
-             '\t\t\t//labcomm_encoder_register_lc_types_{lc_topic}(this->e);\n'
-             '\t\t\t//labcomm_encode_lc_types_{lc_topic}(this->e, &conv);\n'
-             '\t\t//}} else {{\n'
-	         '\t\t\t//std::cout << "null, can\'t send" << std::endl;\n'
-             '\t\t//}}\n')
+    f.write(('\t// Send converted data.\n'
+             '\tlabcomm_encode_lc_types_{lc_topic}(enc, &conv);\n'
+	         '\tstd::cout << "send LC" << std::endl;\n')
              .format(lc_topic=lc_topic))
 
 
@@ -554,16 +711,16 @@ def write_free(f, free_list):
     :param f: the file handle to write to.
     :param free_list: the list of names that should be freed.
     '''
-    f.write('\t\t// Free the allocated stuff\n')
+    f.write('\t// Free the allocated stuff\n')
     free_list.reverse() # free in reverse order of alloc
     for name in free_list:
         if '[i]' in name: # Detect array.
             size = name.replace('a[i]', 'n_0')
-            f.write(('\t\tfor (int i = 0; i < {size}; i++) {{\n'
-                     '\t\t\tfree({name});\n'
-                     '\t\t}}\n').format(name=name,size=size))
+            f.write(('\tfor (int i = 0; i < {size}; i++) {{\n'
+                     '\t\tfree({name});\n'
+                     '\t}}\n').format(name=name,size=size))
         else:
-            f.write('\t\tfree({name});\n'.format(name=name))
+            f.write('\tfree({name});\n'.format(name=name))
 
 
 def get_srv_types():
@@ -620,9 +777,11 @@ def run(conf, ws, force):
     cfil.close()
 
     # C++ conversions
+    (clientfd, clientnam) = mkstemp('.h')
     (convfd, convnam) = mkstemp('.cpp')
+    clientfil = os.fdopen(clientfd, 'w')
     convfil = os.fdopen(convfd, 'w')
-    write_conv(convfil, cf.name,
+    write_conv(clientfil, convfil, cf.name,
                topics_in, topics_out, topics_types,
                services_used, cf.static, cf.conversions)
     convfil.close()
@@ -644,7 +803,7 @@ def run(conf, ws, force):
     for dep in topics.itervalues():
         deps.add(dep[:dep.index('/')])
 
-    return create_pkg(ws, cf.name, deps, force, tnam, cnam, convnam,
+    return create_pkg(ws, cf.name, deps, force, tnam, cnam, convnam, clientnam,
                       cf.lc_files(), cf.py_files())
 
 

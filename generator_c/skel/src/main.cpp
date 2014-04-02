@@ -3,13 +3,12 @@
 #include "rosgraph_msgs/Log.h"
 
 #include "bridge.h"
-#include "conv.cpp"
 
 int main(int argc, char** argv)
 {
 	ros::init(argc, argv, PKG_NAME);
 
-	LabCommBridgeImpl bridge;
+	LabCommBridge bridge;
 	bridge.serve();
 
 	return 0;

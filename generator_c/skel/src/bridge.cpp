@@ -8,7 +8,7 @@
 #include "bridge.h"
 #include "client.h"
 
-void spinny()
+static void spinny()
 {
 	ros::spin();
 }
@@ -33,7 +33,7 @@ void LabCommBridge::serve()
 
 		// boost::thread run_decoder_thread(run_decode, dec);
 
-		client *c = new client(csock);
+		client *c = new client(csock, n);
 		boost::thread client_thread(start_client, c);
 
 		std::cout << "Got client: " << csock << std::endl;
@@ -42,7 +42,4 @@ void LabCommBridge::serve()
 	}
 
 }
-
-// Include generated code
-#include "conv.cpp"
 
