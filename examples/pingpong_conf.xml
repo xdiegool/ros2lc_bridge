@@ -4,7 +4,6 @@
   </topics_in>
 
   <topics_out>
-    <!-- <topic name="/pong" />-->
-	<topic name="/rosout" />
+	<topic name="/pong" />
   </topics_out>
 </bridge>
