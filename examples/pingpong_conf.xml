@@ -1,11 +1,9 @@
 <bridge name="test_bridge" port="7357">
   <topics_in>
     <topic name="/ping" />
-	<topic name="/rosout" />
   </topics_in>
 
   <topics_out>
-	<!-- <topic name="/pong" />-->
-	<topic name="/rosout" />
+	<topic name="/pong" />
   </topics_out>
 </bridge>

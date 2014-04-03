@@ -74,6 +74,7 @@ class client {
 	struct labcomm_reader *r;
 	struct labcomm_writer *w;
 
+public:
 '''
 
 client_subscriber_members = '''
@@ -84,7 +85,6 @@ client_publisher_members = '''
 \tros::Publisher {topic_name}Pub;'''
 
 client_functions = '''
-public:
     client(int sock, ros::NodeHandle &n);
 	~client()
 	{
@@ -108,7 +108,7 @@ void setup_imports() {'''
 
 publish = '''
 \t\t{topic_name}Pub = n.advertise<{topic_type_cpp}>("{ros_topic_name}", 10);
-\t\tlabcomm_decoder_register_lc_types_{topic_name}(dec, {topic_name}_lc_callback, NULL);
+\t\tlabcomm_decoder_register_lc_types_{topic_name}(dec, {topic_name}_lc_callback, this);
 '''
 
 class_end = '''
@@ -527,7 +527,7 @@ def write_lc2ros(convf, topic_types, topic, definition):
     convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
                                           cpp_topic_type=topic_type_cpp))
     lc2ros_conversion(convf, topic, definition)
-    convf.write(end_fn)
+    convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
 
 lc2ros_convert_array = '''\tmsg.{name}.assign(sample->{name}.n_0, sample->{name}.a);
 '''
@@ -542,6 +542,10 @@ lc2ros_convert_array_str = '''
 lc2ros_convert_array_normal = '''
 \t\tmsg.{name}.push_back(sample->{name}.a[i]);
 '''
+
+lc2ros_cb_fn_end = '''
+\t((client *) ctx)->{topic_name}Pub.publish(msg);
+}}'''
 
 def lc2ros_conversion(f, topic, definition, prefix = ''):
 
