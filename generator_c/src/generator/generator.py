@@ -4,7 +4,6 @@ PROJ_NAME = 'generator'       # TODO: Is there an api for this?
 
 import roslib; roslib.load_manifest(PROJ_NAME)
 from rosgraph.masterapi import Master
-import std_msgs
 import re
 from os.path import basename
 from os.path import splitext
@@ -28,7 +27,12 @@ CONVERSION_FILENAME = 'conv.cpp'
 CLIENT_FILENAME     = 'client.h'
 CONFIG_FILENAME     = 'conf.h'
 
-conf_content = '''#ifndef {pkg_name}_CONF_C
+
+## Boilerplate content to output.
+#################################
+
+conf_content = '''
+#ifndef {pkg_name}_CONF_C
 #define {pkg_name}_CONF_C
 #define PKG_NAME "{pkg_name}"
 #define PORT     ({port})
@@ -43,7 +47,8 @@ conf_content = '''#ifndef {pkg_name}_CONF_C
 #endif
 '''
 
-client_defines = '''#ifndef {pkg_name}_CLIENT_C
+client_file_begin = '''
+#ifndef {pkg_name}_CLIENT_C
 #define {pkg_name}_CLIENT_C
 
 #include "ros/ros.h"
@@ -59,16 +64,18 @@ void alloc_array(void **, size_t, size_t);
 
 '''
 
-client_include = '''
-#include "{topic_type}.h"'''
+client_class_include = '''
+#include "{topic_type}.h"
+'''
 
-client_lc_callbacks = '''
-void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx);'''
+client_lc_callback_def = '''
+void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx);
+'''
 
-client_class = '''
+client_class_begin = '''
 class client {
 	int sock;
-    ros::NodeHandle &n;
+	ros::NodeHandle &n;
 	struct labcomm_decoder *dec;
 	struct labcomm_encoder *enc;
 	struct labcomm_reader *r;
@@ -77,15 +84,17 @@ class client {
 public:
 '''
 
-client_subscriber_members = '''
-\tros::Subscriber {topic_name}Sub;
-\tvoid {topic_name}_ros_callback(const {topic_type}::ConstPtr& msg);'''
+client_ros_subscriber_members = '''
+	ros::Subscriber {topic_name}Sub;
+	void {topic_name}_ros_callback(const {topic_type}::ConstPtr& msg);
+'''
 
-client_publisher_members = '''
-\tros::Publisher {topic_name}Pub;'''
+client_ros_publisher_member = '''
+	ros::Publisher {topic_name}Pub;
+'''
 
 client_functions = '''
-    client(int sock, ros::NodeHandle &n);
+	client(int sock, ros::NodeHandle &n);
 	~client()
 	{
 		labcomm_decoder_free(dec);
@@ -96,35 +105,86 @@ client_functions = '''
 	void handle_subscribe(proto_subscribe *subs);
 	void handle_publish(proto_publish *pub);
 
-    void setup_exports() {'''
-
-subscribe = '''
-\t\t{topic_name}Sub = n.subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
-\t\tlabcomm_encoder_register_lc_types_{topic_name}(enc);
+    void setup_exports() {
 '''
 
-publish_fn = '''
-void setup_imports() {'''
-
-publish = '''
-\t\t{topic_name}Pub = n.advertise<{topic_type_cpp}>("{ros_topic_name}", 10);
-\t\tlabcomm_decoder_register_lc_types_{topic_name}(dec, {topic_name}_lc_callback, this);
+client_subscribe_reg = '''
+		{topic_name}Sub = n.subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
+		labcomm_encoder_register_lc_types_{topic_name}(enc);
 '''
 
-class_end = '''
-};
+setup_imports_fn_begin = '''
+	void setup_imports() {
+'''
 
-#endif
+setup_imports_fn = '''
+		{topic_name}Pub = n.advertise<{topic_type}>("{topic}", 10);
+		labcomm_decoder_register_lc_types_{topic_name}(dec, {topic_name}_lc_callback, this);
 '''
 
 subscriber_cb_fn_begin = '''
 void client::{topic_name}_ros_callback(const {topic_type}::ConstPtr& msg)
 {{
-\t// Convert received ROS data.
-\tlc_types_{topic_name} conv;
+	// Convert received ROS data.
+	lc_types_{topic_name} conv;
 '''
 
-end_fn = '''}
+lc2ros_cb_fn_begin = '''
+void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx)
+{{
+\t{cpp_topic_type} msg;
+'''
+
+# TODO: Check if all types of arrays work properly.
+lc2ros_convert_array = '''
+	msg.{name}.assign(sample->{name}.n_0, sample->{name}.a);
+'''
+lc2ros_convert_array_start = '''
+	msg.{name}.clear();
+	for (int i = 0; i < sample->{name}.n_0; i++) {{
+'''
+
+lc2ros_convert_array_str = '''
+		msg.{name}.push_back(sample->{name}.a[i]);
+'''
+
+lc2ros_cb_fn_end = '''
+	((client *) ctx)->{topic_name}Pub.publish(msg);
+}}'''
+
+ros2lc_convert_array_start = '''
+	conv.{name}.n_0 = msg->{name}.size();
+	alloc_array((void **)&conv.{name}.a, conv.{name}.n_0,
+				(msg->{name}[0]));
+	for (size_t i = 0; i < msg->{name}.size(); i++) {{
+'''
+
+ros2lc_convert_string_array = '''
+		conv.{name}.a[i] = strdup(msg->{name}[i].c_str());
+'''
+
+ros2lc_convert_string = '''
+	conv.{name} = strdup(msg->{name}.c_str());
+'''
+
+ros2lc_convert_time_duration_array = '''
+		conv.{name}.a[i].secs = msg->{name}[i].sec;
+		conv.{name}.a[i].nsecs = msg->{name}[i].nsec;
+'''
+
+ros2lc_convert_time_duration = '''
+	conv.{name}.secs = msg->{name}.sec;
+	conv.{name}.nsecs = msg->{name}.nsec;
+'''
+
+convert_array_end = '\t\t}}\n'
+
+end_fn = '}'
+
+class_end = '''
+};
+
+#endif
 '''
 
 ros_prim = {
@@ -399,22 +459,18 @@ rosbuild_add_executable(main
     src/proto.c
     src/client.cpp
     src/bridge.cpp
-    src/main.cpp
 )
 target_link_libraries(main {lc_lib})
 include_directories({lc_inc})'''.format(lc_lib=lclibpath + '/liblabcomm.a',
                                         lc_inc=lclibpath))
 
         # Fix permissions
-        os.chmod(('%s/' + CONFIG_FILENAME) % srcdir,
-                 stat.S_IRUSR | stat.S_IWUSR |
-                 stat.S_IRGRP | stat.S_IWGRP)
+        # os.chmod(('%s/' + CONFIG_FILENAME) % srcdir,
+        #          stat.S_IRUSR | stat.S_IWUSR |
+        #          stat.S_IRGRP | stat.S_IWGRP)
         # os.chmod('%s/lc_types.py' % srcdir,
         #          stat.S_IRUSR |
         #          stat.S_IRGRP)
-        os.chmod('%s/main.cpp' % srcdir,
-                 stat.S_IRUSR | stat.S_IWUSR |
-                 stat.S_IRGRP | stat.S_IWGRP)
     except Exception as e:
         # sh('rm -fr ' + d)       # Clean up
         raise e
@@ -454,108 +510,84 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
     :param conversions: a list of conversions specified by the user (obsolete in C++)
     '''
     # Write define stuff
-    clientf.write(client_defines.format(pkg_name=pkg_name))
+    clientf.write(client_file_begin.format(pkg_name=pkg_name))
 
     # Write one function declaration (LC callback) per publisher
     for topic in topics_in:
         topic_name = msg2id(topic)
-        clientf.write(client_lc_callbacks.format(topic_name=topic_name))
+        clientf.write(client_lc_callback_def.format(topic_name=topic_name))
 
     # Write one include per msg needed.
     for topic in topics_out + topics_in:
         topic_type = topics_types[topic]
-        clientf.write(client_include.format(topic_type=topic_type))
+        clientf.write(client_class_include.format(topic_type=topic_type))
 
     # Write class definition
-    clientf.write(client_class)
+    clientf.write(client_class_begin)
 
     # Write class members (ROS callback) for each subscriber.
     for topic in topics_out:
         topic_name = msg2id(topic)
         topic_type_cpp = topics_types[topic].replace('/', '::')
-        clientf.write(client_subscriber_members.format(topic_name=topic_name,
+        clientf.write(client_ros_subscriber_members.format(topic_name=topic_name,
                                                        topic_type=topic_type_cpp))
 
     for topic in topics_in:
         topic_name = msg2id(topic)
-        topic_type_cpp = topics_types[topic].replace('/', '::')
-        clientf.write(client_publisher_members.format(topic_name=topic_name,
-                                                       topic_type=topic_type_cpp))
+        topic_type = topics_types[topic].replace('/', '::')
+        clientf.write(client_ros_publisher_member.format(topic_name=topic_name,
+                                                         topic_type=topic_type))
 
     # Write setup in constructor.
     clientf.write(client_functions)
     for topic in topics_out:
-        clientf.write(subscribe.format(topic_name=msg2id(topic),
-                                       ros_topic_name=topic))
+        clientf.write(client_subscribe_reg.format(topic_name=msg2id(topic),
+                                                  ros_topic_name=topic))
     clientf.write('\t' + end_fn)
 
-    clientf.write(publish_fn)
+    clientf.write(setup_imports_fn_begin)
     for topic in topics_in:
         topic_name = msg2id(topic)
-        topic_type_cpp = topics_types[topic].replace('/', '::')
-        clientf.write(publish.format(topic_name=topic_name,
-                                     topic_type_cpp=topic_type_cpp,
-                                     ros_topic_name=topic))
+        # Get corresponding C++ type.
+        topic_type = topics_types[topic].replace('/', '::')
+        clientf.write(setup_imports_fn.format(topic_name=topic_name,
+                                              topic_type=topic_type,
+                                              topic=topic))
     clientf.write('\t' + end_fn)
 
     clientf.write(class_end)
 
-    # Write subscriber callbacks.
+    # Write subscriber callbacks that converts to LabComm samples.
     for topic in topics_out:
         topic_name = msg2id(topic)
         topic_type = topics_types[topic]
         topic_type_cpp = topic_type.replace('/', '::')
         convf.write(subscriber_cb_fn_begin.format(topic_name=topic_name,
                                                   topic_type=topic_type_cpp))
+        # Write conversion from ROS to LabComm.
         free_list = write_conversion(convf, topic, get_def(topic_type))
         write_send(convf, topic)
         write_free(convf, free_list)
         convf.write(end_fn)
 
+    # Write LabComm callbacks that converts to ROS msgs.
     for topic in topics_in:
-        write_lc2ros(convf, topics_types, topic, get_def(topics_types[topic]))
+        definition = get_def(topics_types[topic])
+        topic_type_cpp = topics_types[topic].replace('/', '::')
+        convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
+                                              cpp_topic_type=topic_type_cpp))
+        lc2ros_conversion(convf, topic, definition)
+        convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
 
 
-lc2ros_cb_fn_begin = '''
-void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx)
-{{
-\t{cpp_topic_type} msg;
-'''
-
-def write_lc2ros(convf, topic_types, topic, definition):
-    topic_type_cpp = topic_types[topic].replace('/', '::')
-    convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
-                                          cpp_topic_type=topic_type_cpp))
-    lc2ros_conversion(convf, topic, definition)
-    convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
-
-lc2ros_convert_array = '''\tmsg.{name}.assign(sample->{name}.n_0, sample->{name}.a);
-'''
-lc2ros_convert_array_start = '''\tmsg.{name}.clear();
-\tfor (int i = 0; i < sample->{name}.n_0; i++) {{
-'''
-
-lc2ros_convert_array_str = '''
-\t\tmsg.{name}.push_back(sample->{name}.a[i]);
-'''
-
-lc2ros_convert_array_normal = '''
-\t\tmsg.{name}.push_back(sample->{name}.a[i]);
-'''
-
-lc2ros_cb_fn_end = '''
-\t((client *) ctx)->{topic_name}Pub.publish(msg);
-}}'''
-
+# TODO: Practically identical to write_conversion below. Merge these.
 def lc2ros_conversion(f, topic, definition, prefix = ''):
 
     def write_string(f, full_name, in_array = False):
         '''Helper function for writing conversion code for strings.'''
         if in_array: # string in array
-            # res = '\t\tmsg.{name}[i] = sample->{name}.a[i];\n'
             res = lc2ros_convert_array_str
         else: # nested string
-            # free_list.append('conv.{name}'.format(name=full_name))
             res = '\tmsg.{name} = sample->{name};\n'
         f.write(res.format(name=full_name))
 
@@ -609,21 +641,6 @@ def lc2ros_conversion(f, topic, definition, prefix = ''):
                 f.write(res.format(name=name))
 
 
-convert_array_start = '''\tconv.{name}.n_0 = msg->{name}.size();
-\talloc_array((void **)&conv.{name}.a, conv.{name}.n_0,
-\t            sizeof(msg->{name}[0]));
-\tfor (size_t i = 0; i < msg->{name}.size(); i++) {{
-'''
-
-convert_array_copy = '''
-\t\tconv.{name}.a[i] = msg->{name}[i];
-'''
-
-convert_array_copy_str = '''
-\t\tconv.{name}.a[i] = strdup(msg->{name}[i].c_str());
-'''
-convert_array_end = '\t\t}}\n'
-
 splitter = re.compile(r'[ =]')
 def write_conversion(f, topic, definition, prefix = ''):
     '''Writes the conversion from ROS to LC.
@@ -639,10 +656,10 @@ def write_conversion(f, topic, definition, prefix = ''):
     def write_string(f, full_name, in_array = False):
         '''Helper function for writing conversion code for strings.'''
         if in_array: # string in array
-            res = '\t\tconv.{name}.a[i] = strdup(msg->{name}[i].c_str());\n'
-        else: # nested string
+            res = ros2lc_convert_string_array
+        else:
             free_list.append('conv.{name}'.format(name=full_name))
-            res = '\tconv.{name} = strdup(msg->{name}.c_str());\n'
+            res = ros2lc_convert_string
         f.write(res.format(name=full_name))
 
     def write_time_duration(f, full_name, in_array = False):
@@ -650,17 +667,15 @@ def write_conversion(f, topic, definition, prefix = ''):
         (which are primitive types in ROS msgs).
         '''
         if in_array:
-            res = ('\t\tconv.{name}.a[i].secs = msg->{name}[i].sec;\n'
-                   '\t\tconv.{name}.a[i].nsecs = msg->{name}[i].nsec;\n')
+            res = ros2lc_convert_time_duration_array
         else:
-            res = ('\tconv.{name}.secs = msg->{name}.sec;\n'
-                   '\tconv.{name}.nsecs = msg->{name}.nsec;\n')
+            res = ros2lc_convert_time_duration
         f.write(res.format(name=full_name))
 
     def write_array(f, full_name, typ):
         '''Helper function for writing conversion code for arrays.'''
         free_list.append('conv.{name}.a'.format(name=full_name))
-        f.write(convert_array_start.format(name=full_name))
+        f.write(ros2lc_convert_array_start.format(name=full_name))
         res = ''
         if typ == 'string':
             write_string(f, full_name, True)
