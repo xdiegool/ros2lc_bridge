@@ -53,6 +53,7 @@ client_file_begin = '''
 
 #include "ros/ros.h"
 
+#include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/locks.hpp>
 
@@ -116,7 +117,7 @@ client_functions = '''
 	void handle_subscribe(proto_subscribe *subs);
 	void handle_publish(proto_publish *pub);
 
-    void setup_exports() {
+	void setup_exports() {
 '''
 
 client_subscribe_reg = '''
@@ -542,6 +543,19 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         topic_type = topics_types[topic]
         clientf.write(client_class_include.format(topic_type=topic_type))
 
+    # Write includes for service types.
+    for service in services:
+        clientf.write('#include "{name}.h"\n'
+                      .format(name=get_srv_type(service)))
+
+    # Write one function declaration (LC callback) per service.
+    for service in services:
+        lc_name = msg2id(service)
+        lc_par_type = lc_name + SRV_PAR_SUFFIX
+        clientf.write(client_service_callback_def.format(lc_name=lc_name,
+                                                         lc_par_type=lc_par_type))
+
+
     # Write class definition
     clientf.write(client_class_begin)
 
@@ -557,6 +571,11 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         topic_type = topics_types[topic].replace('/', '::')
         clientf.write(client_ros_publisher_member.format(topic_name=topic_name,
                                                          topic_type=topic_type))
+    for service in services:
+        lc_name = msg2id(service)
+        lc_par_type = lc_name + SRV_PAR_SUFFIX
+        clientf.write(client_ros_service_members.format(srv_name=lc_name,
+                                                       lc_par_type=lc_par_type))
 
     # Write setup in constructor.
     clientf.write(client_functions)
@@ -575,7 +594,30 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                               topic=topic))
     clientf.write('\t' + end_fn)
 
+    clientf.write('\n\tvoid setup_services() {\n')
+    for service in services:
+        lc_name = msg2id(service)
+        clientf.write('\t\tlabcomm_encoder_register_lc_types_{name}_RET(enc);\n'
+                      .format(name=lc_name))
+        clientf.write('\t\tlabcomm_decoder_register_lc_types_{name}_PAR(dec, handle_srv_{name}, this);\n'
+                      .format(name=lc_name)) # TODO: callbacks!
+
+    clientf.write('\t' + end_fn)
+
     clientf.write(class_end)
+
+    # Write LC callbacks for services.
+    for service in services:
+        ros_type = get_srv_type(service)
+        lc_name = msg2id(service)
+        lc_par_type = lc_name + SRV_PAR_SUFFIX
+        lc_ret_type = lc_name + SRV_RET_SUFFIX
+        cpp_type = get_srv_type(service).replace('/', '::')
+        clientf.write(service_call_func.format(lc_name=lc_name,
+                                               lc_par_type=lc_par_type,
+                                               lc_ret_type=lc_ret_type,
+                                               cpp_type=cpp_type,
+                                               ros_name=service))
 
     # Write subscriber callbacks that converts to LabComm samples.
     for topic in topics_out:

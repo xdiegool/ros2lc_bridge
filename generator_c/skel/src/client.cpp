@@ -21,7 +21,9 @@ static void publish_callback(proto_publish *v, void *ctx)
 }
 
 client::client(int client_sock, ros::NodeHandle &n)
-	: sock(client_sock), n(n)
+	: sock(client_sock),
+	  n(n),
+	  enc_lock()
 {
 	struct labcomm_reader *r;
 	struct labcomm_writer *w;
@@ -52,6 +54,7 @@ client::client(int client_sock, ros::NodeHandle &n)
 
 	setup_imports();
 	setup_exports();
+	setup_services();
 }
 
 void client::run()
