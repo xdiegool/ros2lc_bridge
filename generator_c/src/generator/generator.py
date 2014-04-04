@@ -75,6 +75,11 @@ client_lc_callback_def = '''
 void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx);
 '''
 
+client_service_callback_def = '''
+static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v);
+'''
+
+
 client_class_begin = '''
 class client {
 	int sock;
@@ -89,6 +94,10 @@ public:
 client_ros_subscriber_members = '''
 	ros::Subscriber {topic_name}Sub;
 	void {topic_name}_ros_callback(const {topic_type}::ConstPtr& msg);
+'''
+
+client_ros_service_members = '''
+	void call_srv_{srv_name}(lc_types_{lc_par_type} *s);
 '''
 
 client_ros_publisher_member = '''
@@ -180,6 +189,14 @@ ros2lc_convert_time_duration = '''
 '''
 
 convert_array_end = '\t\t}}\n'
+
+service_call_func = '''
+static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v)
+{{
+	client *c = (client *) v;
+	boost::thread call_service(&client::call_srv_{lc_name}, c, s);
+}}
+'''
 
 end_fn = '}'
 
