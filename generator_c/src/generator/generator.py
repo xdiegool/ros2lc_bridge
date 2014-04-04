@@ -53,6 +53,9 @@ client_file_begin = '''
 
 #include "ros/ros.h"
 
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/locks.hpp>
+
 extern "C" {{
 #include <labcomm.h>
 
@@ -80,6 +83,7 @@ class client {
 	struct labcomm_encoder *enc;
 	struct labcomm_reader *r;
 	struct labcomm_writer *w;
+	boost::mutex enc_lock;
 
 public:
 '''
@@ -717,7 +721,8 @@ def write_send(f, topic):
     :param topic: the topic being converted.
     '''
     lc_topic = msg2id(topic)
-    f.write(('\t// Send converted data.\n'
+    f.write(('\t// Send converted data (use boost::lock_guard for locking).\n'
+             '\tboost::lock_guard<boost::mutex> enc_guard(enc_lock);\n'
              '\tlabcomm_encode_lc_types_{lc_topic}(enc, &conv);\n'
 	         '\tstd::cout << "send LC" << std::endl;\n')
              .format(lc_topic=lc_topic))
