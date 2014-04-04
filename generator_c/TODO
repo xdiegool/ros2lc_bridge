@@ -1,3 +1,26 @@
+# TODO for C++
+
+    * Get services to work.
+        - Code should look something like:
+            {cpp_type} srv;
+            client *c = (client *) v;
+            // TODO: convert
+            ros::ServiceClient client = n.serviceClient<{cpp_type}>("{ros_name}");
+            if (client.call(srv)) {{
+                //TODO: Success
+                // TODO: convert back to LC.
+                lc_types_{lc_ret_type} res;
+                c->srv_response_{lc_name}(&res);
+            }} else {{
+                //TODO: Fail
+            }}
+    * Add a list of allowed topics?
+        - Probably unnecessary since LabComm won't have a type registered.
+    * Get static connections to work.
+    * Get Lua to work?
+
+
+# Other
 1. Generator queries master for all avail. topics and generates pkg.
    This include creating equivalent labcomm types.
    Use static config file to some extent.
