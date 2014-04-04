@@ -750,6 +750,18 @@ def get_srv_types():
         services[sname] = stype.strip()
     return services
 
+srv_type_cache = {}
+def get_srv_type(srv):
+    if srv in srv_type_cache:
+        return srv_type_cache[srv]
+    typ = sh('rosservice type %s' % srv)
+    if typ[0]:
+        srv_type_cache[srv] = typ[1].strip()
+        return srv_type_cache[srv]
+    else:
+        return None
+
+
 
 def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
