@@ -81,8 +81,6 @@ class client {
 	ros::NodeHandle &n;
 	struct labcomm_decoder *dec;
 	struct labcomm_encoder *enc;
-	struct labcomm_reader *r;
-	struct labcomm_writer *w;
 	boost::mutex enc_lock;
 
 public:
