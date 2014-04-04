@@ -830,8 +830,9 @@ def run(conf, ws, force):
     write_lc(req_topics, defs, req_services, service_defs, tfil)
     tfil.close()
 
+    union = dict(topics.items() + services_used.items())
     deps = set()
-    for dep in topics.itervalues():
+    for dep in union.itervalues():
         deps.add(dep[:dep.index('/')])
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam, convnam, clientnam,
