@@ -147,49 +147,9 @@ void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx)
 \t{cpp_topic_type} msg;
 '''
 
-# TODO: Check if all types of arrays work properly.
-lc2ros_convert_array = '''
-	msg.{name}.assign(sample->{name}.n_0, sample->{name}.a);
-'''
-lc2ros_convert_array_start = '''
-	msg.{name}.clear();
-	for (int i = 0; i < sample->{name}.n_0; i++) {{
-'''
-
-lc2ros_convert_array_str = '''
-		msg.{name}.push_back(sample->{name}.a[i]);
-'''
-
 lc2ros_cb_fn_end = '''
 	((client *) ctx)->{topic_name}Pub.publish(msg);
 }}'''
-
-ros2lc_convert_array_start = '''
-	conv.{name}.n_0 = msg->{name}.size();
-	alloc_array((void **)&conv.{name}.a, conv.{name}.n_0,
-				(msg->{name}[0]));
-	for (size_t i = 0; i < msg->{name}.size(); i++) {{
-'''
-
-ros2lc_convert_string_array = '''
-		conv.{name}.a[i] = strdup(msg->{name}[i].c_str());
-'''
-
-ros2lc_convert_string = '''
-	conv.{name} = strdup(msg->{name}.c_str());
-'''
-
-ros2lc_convert_time_duration_array = '''
-		conv.{name}.a[i].secs = msg->{name}[i].sec;
-		conv.{name}.a[i].nsecs = msg->{name}[i].nsec;
-'''
-
-ros2lc_convert_time_duration = '''
-	conv.{name}.secs = msg->{name}.sec;
-	conv.{name}.nsecs = msg->{name}.nsec;
-'''
-
-convert_array_end = '\t\t}}\n'
 
 service_call_func = '''
 static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v)
@@ -197,6 +157,35 @@ static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v)
 	client *c = (client *) v;
 	boost::thread call_service(&client::call_srv_{lc_name}, c, s);
 }}
+'''
+
+service_call_callback_begin = '''
+void client::call_srv_{lc_name}(lc_types_{lc_par_type} *s)
+{{
+	{cpp_type} msg;
+'''
+
+service_call_callback_call_srv = '''
+	ros::ServiceClient client;
+	client = n.serviceClient<{cpp_type}>("{srv_name}");
+	if (client.call(msg)) {{
+		// TODO: convert back to LC.
+		lc_types_{lc_ret_type} res;
+'''
+
+service_call_callback_end = '''
+		srv_response_{lc_name}(&res);
+	}} else {{
+		//TODO: Fail
+	}}
+}}
+'''
+
+service_call_respond = '''
+	void srv_response_{lc_name}(lc_types_{lc_ret_type} *res)
+	{{
+		labcomm_encode_lc_types_{lc_ret_type}(enc, res);
+	}}
 '''
 
 end_fn = '}'
@@ -555,7 +544,6 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         clientf.write(client_service_callback_def.format(lc_name=lc_name,
                                                          lc_par_type=lc_par_type))
 
-
     # Write class definition
     clientf.write(client_class_begin)
 
@@ -574,8 +562,11 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
     for service in services:
         lc_name = msg2id(service)
         lc_par_type = lc_name + SRV_PAR_SUFFIX
+        lc_ret_type = lc_name + SRV_RET_SUFFIX
         clientf.write(client_ros_service_members.format(srv_name=lc_name,
                                                        lc_par_type=lc_par_type))
+        clientf.write(service_call_respond.format(lc_name=lc_name,
+                                                  lc_ret_type=lc_ret_type))
 
     # Write setup in constructor.
     clientf.write(client_functions)
@@ -596,12 +587,11 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
     clientf.write('\n\tvoid setup_services() {\n')
     for service in services:
-        lc_name = msg2id(service)
+        name = msg2id(service)
         clientf.write('\t\tlabcomm_encoder_register_lc_types_{name}_RET(enc);\n'
-                      .format(name=lc_name))
+                      .format(name=name))
         clientf.write('\t\tlabcomm_decoder_register_lc_types_{name}_PAR(dec, handle_srv_{name}, this);\n'
-                      .format(name=lc_name)) # TODO: callbacks!
-
+                      .format(name=name))
     clientf.write('\t' + end_fn)
 
     clientf.write(class_end)
@@ -627,7 +617,9 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         convf.write(subscriber_cb_fn_begin.format(topic_name=topic_name,
                                                   topic_type=topic_type_cpp))
         # Write conversion from ROS to LabComm.
-        free_list = write_conversion(convf, topic, get_def(topic_type))
+        # free_list = write_conversion(convf, get_def(topic_type))
+        free_list = convert_type(convf, True, False, True, get_def(topic_type), 'msg',
+                                 'conv', 'to_lc')
         write_send(convf, topic)
         write_free(convf, free_list)
         convf.write(end_fn)
@@ -638,139 +630,169 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         topic_type_cpp = topics_types[topic].replace('/', '::')
         convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
                                               cpp_topic_type=topic_type_cpp))
-        lc2ros_conversion(convf, topic, definition)
+        convert_type(convf, True, True, False, definition, 'msg', 'sample',
+                     'to_ros')
+        # lc2ros_conversion(convf, topic, definition)
         convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
 
+    # Write LabComm callbacks that converts to ROS msgs.
+    for service in services:
+        ros_type = get_srv_type(service)
+        definition = service_defs[ros_type]
+        lc_name = msg2id(service)
+        lc_par_type = lc_name + SRV_PAR_SUFFIX
+        lc_ret_type = lc_name + SRV_RET_SUFFIX
+        cpp_type = ros_type.replace('/', '::')
+        convf.write(service_call_callback_begin.format(lc_name=lc_name,
+                                                       lc_par_type=lc_par_type,
+                                                       cpp_type=cpp_type))
+        convert_type(convf, False, False, False, definition[0], 'msg.request', 's', 'to_ros')
+        convf.write(service_call_callback_call_srv.format(srv_name=service,
+                                                          cpp_type=cpp_type,
+                                                          lc_ret_type=lc_ret_type,
+                                                          lc_name=lc_name))
+        convert_type(convf, False, False, False, definition[1], 'msg.response', 'res', 'to_lc')
+        convf.write(service_call_callback_end.format(lc_name=lc_name))
+        #convf.write(end_fn.format(topic_name=cpp_type))
 
-# TODO: Practically identical to write_conversion below. Merge these.
-def lc2ros_conversion(f, topic, definition, prefix = ''):
 
-    def write_string(f, full_name, in_array = False):
-        '''Helper function for writing conversion code for strings.'''
-        if in_array: # string in array
-            res = lc2ros_convert_array_str
-        else: # nested string
-            res = '\tmsg.{name} = sample->{name};\n'
-        f.write(res.format(name=full_name))
 
-    def write_time_duration(f, full_name, in_array = False):
-        '''Helper function for writing conversion code for Time or Duration
-        (which are primitive types in ROS msgs).
-        '''
-        if in_array:
-            res = ('\t\tmsg.{name}[i].sec = sample->{name}.a[i].secs;\n'
-                   '\t\tmsg.{name}[i].nsec = sample->{name}.a[i].nsecs;\n')
-        else:
-            res = ('\tmsg.{name}.sec = sample->{name}.secs;\n'
-                   '\tmsg.{name}.nsec = sample->{name}.nsecs;\n')
-        f.write(res.format(name=full_name))
+conversions = {
+    'to_ros': {
+        'default': ('\t{ros}.{name} = s->{name};\n', False),
+        'array': {
+            'default': ('\t{ros}.{name}[i] = {lc}->{name}.a[i];\n', False),
+            'string': ('\t\t{ros}.{name}.push_back({lc}->{name}.a[i]);\n', False),
+            'time': (('\t\t{ros}.{name}[i].sec = {lc}->{name}.a[i].secs;\n'
+                      '\t\t{ros}.{name}[i].nsec = {lc}->{name}.a[i].nsecs;\n'),
+                      False),
+            'alloc': (('\t{ros}.{name}.clear();\n'
+                       '\tfor (int i = 0; i < {lc}->{name}.n_0; i++) {{\n'),
+                       False),
+            'end': ('\t}', False)
+        },
+        'time': (('\t{ros}.{name}.sec = {lc}->{name}.secs;\n'
+                  '\t{ros}.{name}.nsec = {lc}->{name}.nsecs;\n'), False),
+        'string': ('\t{ros}.{name} = {lc}->{name};\n', False)
+    },
+    'to_lc': {
+        'default': ('\t{lc}.{name} = {ros}.{name};\n', False),
+        'array': {
+            'default': ('\t{lc}.{name}.a[i] = {ros}.{name}[i];\n', False),
+            'string': ('\t\t{lc}.{name}.a[i] = strdup({ros}.{name}[i].c_str());\n', True),
+            'time': (('\t\t{lc}.{name}.a[i].secs = {ros}.{name}[i].sec;\n'
+                      '\t\t{lc}.{name}.a[i].nsecs = {ros}.{name}[i].nsec;\n'),
+                      False),
+            'alloc': (('\t{lc}.{name}.n_0 = {ros}.{name}.size();\n'
+                       '\talloc_array((void **)&{lc}.{name}.a, {lc}.{name}.n_0,\n'
+                       '\t            sizeof({ros}.{name}[0]));\n'
+                       '\tfor (size_t i = 0; i < {ros}.{name}.size(); i++) {{\n'),
+                       True),
+            'end': ('\t}}\n', False)
+        },
+        'time': (('\t{lc}.{name}.secs = {ros}.{name}.sec;\n'
+                  '\t{lc}.{name}.nsecs = {ros}.{name}.nsec;\n'), False),
+        'string': ('\t{lc}.{name} = strdup({ros}.{name}.c_str());\n', True)
+    }
+}
 
-    def write_array(f, full_name, typ):
-        '''Helper function for writing conversion code for arrays.'''
-        # free_list.append('conv.{name}.a'.format(name=full_name))
-        # res = ''
-        if typ == 'string':
-            f.write(lc2ros_convert_array_start.format(name=full_name))
-            write_string(f, full_name, True)
-            f.write('\t' + end_fn)
-        elif typ == 'time' or typ == 'duraiton':
-            f.write(lc2ros_convert_array_start.format(name=full_name))
-            write_time_duration(f, full_name, True)
-            f.write('\t' + end_fn)
-        else:
-            f.write(lc2ros_convert_array.format(name=full_name))
-        # f.write(res.format(name=full_name))
 
-    for d in definition.split('\n'):
-        # Extract type info from definition.
-        (typ, tail) = (lambda x: (x[0], x[1:]))(splitter.split(d))
-        name = tail[0]
-        if len(tail) > 1: # Skip enum
-            continue
-        if prefix:
-            name = prefix + '.' + name
-        if len(get_nested(typ)) > 0: # non-primitive type, recurse
-            lc2ros_conversion(f, topic, get_def(typ), name)
-        else: # primitive type
-            if typ == 'string':
-                write_string(f, name)
-            elif '[]' in typ:
-                write_array(f, name, typ.replace('[]', '').lower())
-            elif typ == 'time' or typ == 'duration':
-                write_time_duration(f, name)
-            else: # primitive types, just copy
-                res = '\tmsg.{name} = sample->{name};\n'
-                f.write(res.format(name=name))
+def get_code(direction, key, array = False, ros_ptr = False, lc_ptr = False):
+    conv = ''
+    if array:
+        conv = conversions[direction]['array'][key]
+    else:
+        conv = conversions[direction][key]
+    st = conv[0]
+    if ros_ptr:
+        st = st.replace('{ros}.', '{ros}->')
+    if lc_ptr:
+        st = st.replace('{lc}.', '{lc}->')
+
+    return (st, conv[1])
 
 
 splitter = re.compile(r'[ =]')
-def write_conversion(f, topic, definition, prefix = ''):
-    '''Writes the conversion from ROS to LC.
-    
-    :param f: the file handle to write to.
-    :param topic: the topic being converted.
-    :param definition: the definition of the type for the topic.
-    :param prefix: possible prefix to print before the name of the variable
-                   (should only be used when recursively writing conversion
-                   code for non-primitive types).
+def convert_type(f, topic, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction, prefix = ''):
+    '''Writes the conversion code for types.
     '''
-    free_list = []
-    def write_string(f, full_name, in_array = False):
-        '''Helper function for writing conversion code for strings.'''
-        if in_array: # string in array
-            res = ros2lc_convert_string_array
-        else:
-            free_list.append('conv.{name}'.format(name=full_name))
-            res = ros2lc_convert_string
-        f.write(res.format(name=full_name))
+    conv_map = conversions[direction]
 
-    def write_time_duration(f, full_name, in_array = False):
+    free_list = None
+    if direction == 'to_lc':
+        free_list = []
+
+    def append_free(stmt, rosvar, lcvar, name):
+        if free_list and stmt[1]:
+            defined = stmt[0].split('=')[0].strip()
+            if 'alloc_array' in stmt[0]:
+                defined = 's.{name}.a' #TODO: This should be extracted from stmt[0]
+            free_list.append(defined.format(ros=rosvar,lc=lcvar,name=name))
+
+    def write_string(f, conv_map, rosvar, lcvar, name, in_array = False):
+        '''Helper function for writing conversion code for strings.'''
+        res = get_code(direction, 'string', in_array, ros_ptr, lc_ptr)
+        append_free(res, rosvar, lcvar, name)
+        f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
+
+    def write_time_duration(f, conv_map, rosvar, lcvar, name, in_array = False):
         '''Helper function for writing conversion code for Time or Duration
         (which are primitive types in ROS msgs).
         '''
-        if in_array:
-            res = ros2lc_convert_time_duration_array
-        else:
-            res = ros2lc_convert_time_duration
-        f.write(res.format(name=full_name))
+        res = get_code(direction, 'time', in_array, ros_ptr, lc_ptr)
+        # res = conv_map['time'] if in_array else conv_map['time']
+        append_free(res, rosvar, lcvar, name)
+        f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
 
-    def write_array(f, full_name, typ):
+    def write_array(f, conv_map, rosvar, lcvar, name, typ):
         '''Helper function for writing conversion code for arrays.'''
-        free_list.append('conv.{name}.a'.format(name=full_name))
-        f.write(ros2lc_convert_array_start.format(name=full_name))
-        res = ''
+        res = get_code(direction, 'alloc', True, ros_ptr, lc_ptr)
+        append_free(res, rosvar, lcvar, name)
+        f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
+        res = ('',)
         if typ == 'string':
-            write_string(f, full_name, True)
-            # must free strings because of strdup
-            free_list.append('conv.{name}.a[i]'.format(name=full_name))
+            write_string(f, conv_map, rosvar, lcvar, name, True)
         elif typ == 'time' or typ == 'duraiton':
-            write_time_duration(f, full_name, True)
+            write_time_duration(f, conv_map, rosvar, lcvar, name, True)
         else:
-            res = '\t\tconv.{name}.a[i] = msg->{name}[i];\n'
-        res += convert_array_end
-        f.write(res.format(name=full_name))
+            res = get_code(direction, 'default', True, ros_ptr, lc_ptr)
+            # res = conv_map['default']
+        append_free(res, rosvar, lcvar, name)
+        f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
+        res = conv_map['end']
+        append_free(res, rosvar, lcvar, name)
+        f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
 
     for d in definition.split('\n'):
         # Extract type info from definition.
         (typ, tail) = (lambda x: (x[0], x[1:]))(splitter.split(d))
-        name = tail[0]
+        print typ, tail
+        name = ''
+        if len(tail) > 0:
+            name = tail[0]
+            if len(tail) > 1: # Skip enums
+                continue
         if prefix:
             name = prefix + '.' + name
         if len(get_nested(typ)) > 0: # non-primitive type, recurse
-            free_list += write_conversion(f, topic, get_def(typ), name)
+            subtype_def = get_def(typ) if topic else get_srv_def(typ)
+            free_list += convert_type(f, topic, lc_ptr, ros_ptr, subtype_def,
+                                      rosvar, lcvar, direction, name)
         else: # primitive type
             if typ == 'string':
-                write_string(f, name)
+                write_string(f, conv_map, rosvar, lcvar, name)
             elif '[]' in typ:
-                write_array(f, name, typ.replace('[]', '').lower())
+                array_type = typ.replace('[]', '').lower()
+                write_array(f, conv_map['array'], rosvar, lcvar, name, array_type)
             elif typ == 'time' or typ == 'duration':
-                write_time_duration(f, name)
+                write_time_duration(f, conv_map, rosvar, lcvar, name)
             else: # primitive types, just copy
-                res = '\tconv.{name} = msg->{name};\n'
-                f.write(res.format(name=name))
+                res = get_code(direction, 'default', False, ros_ptr, lc_ptr)
+                # res = conv_map['default']
+                append_free(res, rosvar, lcvar, name)
+                f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
 
     return free_list
-
 
 def write_send(f, topic):
     '''Writes the code to send the converted data.
