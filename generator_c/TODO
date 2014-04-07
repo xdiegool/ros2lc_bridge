@@ -5,13 +5,15 @@
         - Don't send topic data if client just requests a service.
     * Currently, the conversion can't handle void types (i.e. dummy types) as
       parameters (or return values).
+    * Change calls to convert_type() to use keyword arguments.
     * If you connect and only subscribe to one topic but the bridge is
       configured with more topics, it will send all of them (not just the one
       you requested). Same thing happens when trying to request just a service
       from the bridge. Known bug.
+    * Get static connections to work.
+    * Merge C++ generator with Python.
 
 ## LATER
-    * Get static connections to work.
     * Perhaps keep a pool of service threads per client to avoid spawning new
       ones every time a service call comes in?
     * Get Lua to work?
