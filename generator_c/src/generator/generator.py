@@ -56,6 +56,7 @@ client_file_begin = '''
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/locks.hpp>
+#include <set>
 
 extern "C" {{
 #include <labcomm.h>
@@ -88,6 +89,7 @@ class client {
 	struct labcomm_decoder *dec;
 	struct labcomm_encoder *enc;
 	boost::mutex enc_lock;
+	std::set<std::string> active_topics;
 
 public:
 '''
@@ -139,6 +141,12 @@ void client::{topic_name}_ros_callback(const {topic_type}::ConstPtr& msg)
 {{
 	// Convert received ROS data.
 	lc_types_{topic_name} conv;
+	if (active_topics.find("{topic_name}") != active_topics.end()) {{
+'''
+
+subscriber_cb_fn_end = '''
+	}
+}
 '''
 
 lc2ros_cb_fn_begin = '''
@@ -623,7 +631,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                  'conv', 'to_lc')
         write_send(convf, topic)
         write_free(convf, free_list)
-        convf.write(end_fn)
+        convf.write(subscriber_cb_fn_end)
 
     # Write LabComm callbacks that converts to ROS msgs.
     for topic in topics_in:

@@ -23,7 +23,8 @@ static void publish_callback(proto_publish *v, void *ctx)
 client::client(int client_sock, ros::NodeHandle &n)
 	: sock(client_sock),
 	  n(n),
-	  enc_lock()
+	  enc_lock(),
+	  active_topics()
 {
 	struct labcomm_reader *r;
 	struct labcomm_writer *w;
@@ -73,6 +74,7 @@ void client::run()
 void client::handle_subscribe(proto_subscribe *sub)
 {
 	std::cout << "Got subscribe request for topic: " << sub->topic << std::endl;
+	active_topics.insert(sub->topic);
 }
 
 void client::handle_publish(proto_publish *pub)
