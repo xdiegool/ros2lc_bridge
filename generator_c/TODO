@@ -1,22 +1,19 @@
 # TODO for C++
 
-    * Get services to work.
-        - Code should look something like:
-            {cpp_type} srv;
-            client *c = (client *) v;
-            // TODO: convert
-            ros::ServiceClient client = n.serviceClient<{cpp_type}>("{ros_name}");
-            if (client.call(srv)) {{
-                //TODO: Success
-                // TODO: convert back to LC.
-                lc_types_{lc_ret_type} res;
-                c->srv_response_{lc_name}(&res);
-            }} else {{
-                //TODO: Fail
-            }}
-    * Add a list of allowed topics?
-        - Probably unnecessary since LabComm won't have a type registered.
+## TOP PRIO
+    * Get services to work. Currently missing:
+        - Don't send topic data if client just requests a service.
+    * Currently, the conversion can't handle void types (i.e. dummy types) as
+      parameters (or return values).
+    * If you connect and only subscribe to one topic but the bridge is
+      configured with more topics, it will send all of them (not just the one
+      you requested). Same thing happens when trying to request just a service
+      from the bridge. Known bug.
+
+## LATER
     * Get static connections to work.
+    * Perhaps keep a pool of service threads per client to avoid spawning new
+      ones every time a service call comes in?
     * Get Lua to work?
 
 
