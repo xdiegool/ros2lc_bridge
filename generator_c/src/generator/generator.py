@@ -184,6 +184,7 @@ service_call_callback_end = '''
 service_call_respond = '''
 	void srv_response_{lc_name}(lc_types_{lc_ret_type} *res)
 	{{
+		boost::lock_guard<boost::mutex> enc_guard(enc_lock);
 		labcomm_encode_lc_types_{lc_ret_type}(enc, res);
 	}}
 '''
