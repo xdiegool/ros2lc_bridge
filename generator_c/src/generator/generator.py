@@ -34,15 +34,10 @@ CONFIG_FILENAME     = 'conf.h'
 conf_content = '''
 #ifndef {pkg_name}_CONF_C
 #define {pkg_name}_CONF_C
+
 #define PKG_NAME "{pkg_name}"
 #define PORT     ({port})
 #define SLASHSUB "{slash_substitute}"
-//TOPICS_IN   = {topics_in}
-//TOPICS_OUT  = {topics_out}
-//TOPIC_TYPES = {topic_types}
-//SERVICES    = {services}
-//STATIC_CONNS = {static_connections}
-//CONV        = {conversions}
 
 #endif
 '''
@@ -495,19 +490,15 @@ include_directories({lc_inc})'''.format(lc_lib=lclibpath + '/liblabcomm.a',
     return d
 
 
-def write_conf(f, bname, port, topics_in, topics_out, topics, services,
-               static_conns, conversions):
-    convs = [conv.tuple_repr() for conv in conversions]
+def write_conf(f, bname, port):
+    '''Writes the conf.h header file.
 
-    f.write(conf_content.format(pkg_name=bname,
-                                topics_in=topics_in,
-                                topics_out=topics_out,
-                                topic_types=topics,
-                                port=port,
-                                slash_substitute=SLASHSUB,
-                                services=services,
-                                static_connections=static_conns,
-                                conversions=convs))
+    :param f: the file to write the defines to.
+    :param bname: the name of the created package.
+    :param port: the port the bridge should run on.
+    '''
+    f.write(conf_content.format(pkg_name=bname, port=port,
+                                slash_substitute=SLASHSUB))
 
 def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                topics_types, services, service_defs, static_conns, conversions):
@@ -915,9 +906,7 @@ def run(conf, ws, force):
     # C++ configuration
     (cfd, cnam) = mkstemp('.h')
     cfil = os.fdopen(cfd, 'w')
-    write_conf(cfil, cf.name, cf.port,
-               topics_in, topics_out, topics_types,
-               services_used, cf.static, cf.conversions)
+    write_conf(cfil, cf.name, cf.port)
     cfil.close()
 
     # C++ conversions
