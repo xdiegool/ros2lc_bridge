@@ -683,7 +683,8 @@ conversions = {
         },
         'time': (('\t{ros}.{name}.sec = {lc}->{name}.secs;\n'
                   '\t{ros}.{name}.nsec = {lc}->{name}.nsecs;\n'), False),
-        'string': ('\t{ros}.{name} = {lc}->{name};\n', False)
+        'string': ('\t{ros}.{name} = {lc}->{name};\n', False),
+        'sstring': ('\t{ros}.{rosname} = {lc}->{lcname};\n', False)
     },
     'to_lc': {
         '': ('', False),
@@ -703,7 +704,8 @@ conversions = {
         },
         'time': (('\t{lc}.{name}.secs = {ros}.{name}.sec;\n'
                   '\t{lc}.{name}.nsecs = {ros}.{name}.nsec;\n'), False),
-        'string': ('\t{lc}.{name} = strdup({ros}.{name}.c_str());\n', True)
+        'string': ('\t{lc}.{name} = strdup({ros}.{name}.c_str());\n', True),
+        'sstring': ('\t{lc}.{lcname} = strdup({ros}.{rosname}.c_str());\n', True)
     }
 }
 
@@ -724,7 +726,8 @@ def get_code(direction, key, array = False, ros_ptr = False, lc_ptr = False):
 
 
 splitter = re.compile(r'[ =]')
-def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction, prefix = ''):
+def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction,
+                 prefix = '', in_array = False):
     '''Writes the conversion code for types.
     '''
     conv_map = conversions[direction]
@@ -740,11 +743,19 @@ def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction, prefi
                 defined = 's.{name}.a' #TODO: This should be extracted from stmt[0]
             free_list.append(defined.format(ros=rosvar,lc=lcvar,name=name))
 
-    def write_string(f, conv_map, rosvar, lcvar, name, in_array = False):
+    def write_string(f, conv_map, rosvar, lcvar, name, in_array_local = False):
         '''Helper function for writing conversion code for strings.'''
-        res = get_code(direction, 'string', in_array, ros_ptr, lc_ptr)
-        append_free(res, rosvar, lcvar, name)
-        f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
+        if in_array: # Not a nice hack... Should probably do better
+            res = get_code(direction, 'sstring', in_array_local, ros_ptr, lc_ptr)
+            parts = name.split('.')
+            lcname = parts[0] + '.a[i].' + parts[1]
+            rosname = parts[0] + '[i].' + parts[1]
+            append_free(res, rosvar, lcvar, lcname)
+            f.write(res[0].format(ros=rosvar,lc=lcvar,lcname=lcname,rosname=rosname))
+        else:
+            res = get_code(direction, 'string', in_array_local, ros_ptr, lc_ptr)
+            append_free(res, rosvar, lcvar, name)
+            f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
 
     def write_time_duration(f, conv_map, rosvar, lcvar, name, in_array = False):
         '''Helper function for writing conversion code for Time or Duration
@@ -765,6 +776,10 @@ def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction, prefi
             write_string(f, conv_map, rosvar, lcvar, name, True)
         elif typ == 'time' or typ == 'duraiton':
             write_time_duration(f, conv_map, rosvar, lcvar, name, True)
+        elif len(get_nested(typ)) > 0:
+            convert_type(f, lc_ptr, ros_ptr, get_def(clean_type),
+                                      rosvar, lcvar, direction, name,
+                                      in_array=True)
         else:
             res = get_code(direction, 'default', True, ros_ptr, lc_ptr)
             # res = conv_map['default']
@@ -785,15 +800,15 @@ def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction, prefi
                 continue
         if prefix:
             name = prefix + '.' + name
-        if len(get_nested(typ)) > 0: # non-primitive type, recurse
+        if len(get_nested(typ)) > 0 and '[]' not in typ: # non-primitive type, recurse
             free_list += convert_type(f, lc_ptr, ros_ptr, get_def(clean_type),
                                       rosvar, lcvar, direction, name)
         else: # primitive type
-            if typ == 'string':
+            if '[]' in typ:
+                # array_type = typ.replace('[]', '')
+                write_array(f, conv_map['array'], rosvar, lcvar, name, typ)
+            elif typ == 'string':
                 write_string(f, conv_map, rosvar, lcvar, name)
-            elif '[]' in typ:
-                array_type = typ.replace('[]', '').lower()
-                write_array(f, conv_map['array'], rosvar, lcvar, name, array_type)
             elif typ == 'time' or typ == 'duration':
                 write_time_duration(f, conv_map, rosvar, lcvar, name)
             elif typ == '':
