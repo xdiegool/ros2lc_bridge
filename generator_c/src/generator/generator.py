@@ -668,6 +668,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
 conversions = {
     'to_ros': {
+        '': ('', False),
         'default': ('\t{ros}.{name} = s->{name};\n', False),
         'array': {
             'default': ('\t{ros}.{name}[i] = {lc}->{name}.a[i];\n', False),
@@ -685,6 +686,7 @@ conversions = {
         'string': ('\t{ros}.{name} = {lc}->{name};\n', False)
     },
     'to_lc': {
+        '': ('', False),
         'default': ('\t{lc}.{name} = {ros}.{name};\n', False),
         'array': {
             'default': ('\t{lc}.{name}.a[i] = {ros}.{name}[i];\n', False),
@@ -795,6 +797,9 @@ def convert_type(f, topic, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction
                 write_array(f, conv_map['array'], rosvar, lcvar, name, array_type)
             elif typ == 'time' or typ == 'duration':
                 write_time_duration(f, conv_map, rosvar, lcvar, name)
+            elif typ == '':
+                res = get_code(direction, '', False, ros_ptr, lc_ptr)
+                f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
             else: # primitive types, just copy
                 res = get_code(direction, 'default', False, ros_ptr, lc_ptr)
                 # res = conv_map['default']

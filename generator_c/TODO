@@ -3,8 +3,6 @@
 ## TOP PRIO
     * Get services to work. Currently missing:
         - ?
-    * Currently, the conversion can't handle void types (i.e. dummy types) as
-      parameters (or return values).
     * Change calls to convert_type() to use keyword arguments.
     * Get static connections to work.
     * Merge C++ generator with Python.
