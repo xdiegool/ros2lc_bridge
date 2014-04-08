@@ -627,7 +627,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                                   topic_type=topic_type_cpp))
         # Write conversion from ROS to LabComm.
         # free_list = write_conversion(convf, get_def(topic_type))
-        free_list = convert_type(convf, True, False, True, get_def(topic_type), 'msg',
+        free_list = convert_type(convf, False, True, get_def(topic_type), 'msg',
                                  'conv', 'to_lc')
         write_send(convf, topic)
         write_free(convf, free_list)
@@ -639,7 +639,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         topic_type_cpp = topics_types[topic].replace('/', '::')
         convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
                                               cpp_topic_type=topic_type_cpp))
-        convert_type(convf, True, True, False, definition, 'msg', 'sample',
+        convert_type(convf, True, False, definition, 'msg', 'sample',
                      'to_ros')
         # lc2ros_conversion(convf, topic, definition)
         convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
@@ -655,12 +655,12 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         convf.write(service_call_callback_begin.format(lc_name=lc_name,
                                                        lc_par_type=lc_par_type,
                                                        cpp_type=cpp_type))
-        convert_type(convf, False, False, False, definition[0], 'msg.request', 's', 'to_ros')
+        convert_type(convf, False, False, definition[0], 'msg.request', 's', 'to_ros')
         convf.write(service_call_callback_call_srv.format(srv_name=service,
                                                           cpp_type=cpp_type,
                                                           lc_ret_type=lc_ret_type,
                                                           lc_name=lc_name))
-        convert_type(convf, False, False, False, definition[1], 'msg.response', 'res', 'to_lc')
+        convert_type(convf, False, False, definition[1], 'msg.response', 'res', 'to_lc')
         convf.write(service_call_callback_end.format(lc_name=lc_name))
         #convf.write(end_fn.format(topic_name=cpp_type))
 
@@ -724,7 +724,7 @@ def get_code(direction, key, array = False, ros_ptr = False, lc_ptr = False):
 
 
 splitter = re.compile(r'[ =]')
-def convert_type(f, topic, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction, prefix = ''):
+def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction, prefix = ''):
     '''Writes the conversion code for types.
     '''
     conv_map = conversions[direction]
@@ -777,7 +777,7 @@ def convert_type(f, topic, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction
     for d in definition.split('\n'):
         # Extract type info from definition.
         (typ, tail) = (lambda x: (x[0], x[1:]))(splitter.split(d))
-        print typ, tail
+        clean_type = typ.replace('[]', '')
         name = ''
         if len(tail) > 0:
             name = tail[0]
@@ -786,8 +786,7 @@ def convert_type(f, topic, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction
         if prefix:
             name = prefix + '.' + name
         if len(get_nested(typ)) > 0: # non-primitive type, recurse
-            subtype_def = get_def(typ) if topic else get_srv_def(typ)
-            free_list += convert_type(f, topic, lc_ptr, ros_ptr, subtype_def,
+            free_list += convert_type(f, lc_ptr, ros_ptr, get_def(clean_type),
                                       rosvar, lcvar, direction, name)
         else: # primitive type
             if typ == 'string':
