@@ -3,6 +3,7 @@
 ## TOP PRIO
     * Get services to work. Currently missing:
         - ?
+	* Free list doesn't work with refactored conversion code.
     * Change calls to convert_type() to use keyword arguments.
     * Get static connections to work.
     * Merge C++ generator with Python.
