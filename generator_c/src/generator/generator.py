@@ -618,8 +618,9 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                                   topic_type=topic_type_cpp))
         # Write conversion from ROS to LabComm.
         # free_list = write_conversion(convf, get_def(topic_type))
-        free_list = convert_type(convf, False, True, get_def(topic_type), 'msg',
-                                 'conv', 'to_lc')
+        free_list = convert_type(convf, get_def(topic_type), 'to_lc',
+                                 lc_ptr=False, ros_ptr=True, ros_varname='msg',
+                                 lc_varname='conv')
         write_send(convf, topic)
         write_free(convf, free_list)
         convf.write(subscriber_cb_fn_end)
@@ -630,8 +631,8 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         topic_type_cpp = topics_types[topic].replace('/', '::')
         convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
                                               cpp_topic_type=topic_type_cpp))
-        convert_type(convf, True, False, definition, 'msg', 'sample',
-                     'to_ros')
+        convert_type(convf, definition, 'to_ros', lc_ptr=True, ros_ptr=False,
+                     ros_varname='msg', lc_varname='sample')
         # lc2ros_conversion(convf, topic, definition)
         convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
 
@@ -646,12 +647,14 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         convf.write(service_call_callback_begin.format(lc_name=lc_name,
                                                        lc_par_type=lc_par_type,
                                                        cpp_type=cpp_type))
-        convert_type(convf, False, False, definition[0], 'msg.request', 's', 'to_ros')
+        convert_type(convf, definition[0], 'to_ros', lc_ptr=False,
+                     ros_ptr=False, ros_varname='msg.request', lc_varname='s')
         convf.write(service_call_callback_call_srv.format(srv_name=service,
                                                           cpp_type=cpp_type,
                                                           lc_ret_type=lc_ret_type,
                                                           lc_name=lc_name))
-        convert_type(convf, False, False, definition[1], 'msg.response', 'res', 'to_lc')
+        convert_type(convf, definition[1], 'to_lc', lc_ptr=False,
+                ros_ptr=False, ros_varname='msg.response', lc_varname='res')
         convf.write(service_call_callback_end.format(lc_name=lc_name))
         #convf.write(end_fn.format(topic_name=cpp_type))
 
@@ -717,8 +720,8 @@ def get_code(direction, key, array = False, ros_ptr = False, lc_ptr = False):
 
 
 splitter = re.compile(r'[ =]')
-def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction,
-                 prefix = '', in_array = False):
+def convert_type(f, definition, direction, ros_varname = '', lc_varname = '', 
+                 prefix = '', lc_ptr = False, ros_ptr = False, in_array = False):
     '''Writes the conversion code for types.
     '''
     conv_map = conversions[direction]
@@ -792,24 +795,27 @@ def convert_type(f, lc_ptr, ros_ptr, definition, rosvar, lcvar, direction,
         if prefix:
             name = prefix + '.' + name
         if len(get_nested(typ)) > 0 and '[]' not in typ: # non-primitive type, recurse
-            free_list += convert_type(f, lc_ptr, ros_ptr, get_def(clean_type),
-                                      rosvar, lcvar, direction, name)
+            free_list += convert_type(f, get_def(clean_type), direction,
+                                      ros_varname=ros_varname,
+                                      lc_varname=lc_varname,
+                                      lc_ptr=lc_ptr, ros_ptr=ros_ptr,
+                                      prefix=name)
         else: # primitive type
             if '[]' in typ:
                 # array_type = typ.replace('[]', '')
-                write_array(f, conv_map['array'], rosvar, lcvar, name, typ)
+                write_array(f, conv_map['array'], ros_varname, lc_varname, name, typ)
             elif typ == 'string':
-                write_string(f, conv_map, rosvar, lcvar, name)
+                write_string(f, conv_map, ros_varname, lc_varname, name)
             elif typ == 'time' or typ == 'duration':
-                write_time_duration(f, conv_map, rosvar, lcvar, name)
+                write_time_duration(f, conv_map, ros_varname, lc_varname, name)
             elif typ == '':
                 res = get_code(direction, '', False, ros_ptr, lc_ptr)
-                f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
+                f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
             else: # primitive types, just copy
                 res = get_code(direction, 'default', False, ros_ptr, lc_ptr)
                 # res = conv_map['default']
-                append_free(res, rosvar, lcvar, name)
-                f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
+                append_free(res, ros_varname, lc_varname, name)
+                f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
 
     return free_list
 
