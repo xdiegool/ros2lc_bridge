@@ -1,0 +1,84 @@
+/* Generated 2014-04-08 14:36 on 'ubuntu-ros' */
+
+typedef struct { int secs; int nsecs; } time;        /* ROS primitive */
+typedef struct { int secs; int nsecs; } duration;    /* ROS primitive */
+typedef struct { byte __dummy__; } dummy;                                  /* TODO: void cannot be typedef:ed */
+
+
+/* Message types: */
+typedef struct {
+        string name;
+        string level;
+} roscppS__Logger;
+
+typedef struct {
+        string data;
+} std_msgsS__String;
+
+typedef struct {
+        float data;
+} std_msgsS__Float32;
+
+typedef struct {
+        long seq;
+        time stamp;
+        string frame_id;
+} std_msgsS__Header;
+
+typedef struct {
+        byte DEBUG; /* = 1 */
+        byte INFO; /* = 2 */
+        byte WARN; /* = 4 */
+        byte ERROR; /* = 8 */
+        byte FATAL; /* = 16 */
+        std_msgsS__Header header;
+        byte level;
+        string name;
+        string msg;
+        string file;
+        string function;
+        long line;
+        string topics[_];
+} rosgraph_msgsS__Log;
+
+
+/* Topics: */
+sample std_msgsS__String S__pong;
+sample std_msgsS__String S__ping;
+
+
+/* Service types: */
+typedef dummy roscppS__GetLoggers_PAR;
+
+typedef struct {
+        roscppS__Logger loggers[_];
+} roscppS__GetLoggers_RET;
+
+typedef struct {
+        string logger;
+        string level;
+} roscppS__SetLoggerLevel_PAR;
+
+typedef dummy roscppS__SetLoggerLevel_RET;
+
+typedef struct {
+        long a;
+        long b;
+} test_serviceS__AddTwoInts_PAR;
+
+typedef struct {
+        long sum;
+} test_serviceS__AddTwoInts_RET;
+
+
+/* Services: */
+sample test_serviceS__AddTwoInts_PAR S__add_two_ints_PAR;
+sample test_serviceS__AddTwoInts_RET S__add_two_ints_RET;
+sample roscppS__GetLoggers_PAR       S__add_two_intsS__get_loggers_PAR;
+sample roscppS__GetLoggers_RET       S__add_two_intsS__get_loggers_RET;
+sample roscppS__GetLoggers_PAR       S__rosoutS__get_loggers_PAR;
+sample roscppS__GetLoggers_RET       S__rosoutS__get_loggers_RET;
+sample roscppS__SetLoggerLevel_PAR   S__add_two_intsS__set_logger_level_PAR;
+sample roscppS__SetLoggerLevel_RET   S__add_two_intsS__set_logger_level_RET;
+sample roscppS__SetLoggerLevel_PAR   S__rosoutS__set_logger_level_PAR;
+sample roscppS__SetLoggerLevel_RET   S__rosoutS__set_logger_level_RET;
