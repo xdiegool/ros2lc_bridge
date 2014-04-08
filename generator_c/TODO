@@ -1,8 +1,6 @@
 # TODO for C++
 
 ## TOP PRIO
-    * Get services to work. Currently missing:
-        - ?
 	* Free list doesn't work with refactored conversion code.
 	* Check if time/duration types works in arrays.
     * Change calls to convert_type() to use keyword arguments.
