@@ -1,14 +1,9 @@
-#include "ros/ros.h"
-
-#include "sys/types.h"
-#include "sys/socket.h"
-extern "C" {
-#include <arpa/inet.h>
-}
-#include <iostream>
-
 #include "bridge.h"
 #include "client.h"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 static void start_client(client *c)
 {

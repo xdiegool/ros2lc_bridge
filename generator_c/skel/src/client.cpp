@@ -1,14 +1,18 @@
 #include "client.h"
 
 extern "C" {
+
+/* LabComm includes */
 #include <labcomm_default_error_handler.h>
 #include <labcomm_fd_reader.h>
 #include <labcomm_fd_writer.h>
 #include <labcomm_default_memory.h>
 #include <labcomm_default_scheduler.h>
+
 }
+
+/* Other */
 #include <stdexcept>
-#include <iostream>
 
 static void subscribe_callback(proto_subscribe *v, void *ctx)
 {

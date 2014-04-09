@@ -3,12 +3,18 @@
 
 #include "ros/ros.h"
 
+/* Boost */
+#include <boost/thread.hpp>
+/* Network */
+#include <sys/socket.h>
+#include <netinet/in.h>
+/* Other */
 #include <stdexcept>
 #include <cstdlib>
-#include <boost/thread.hpp>
 
 extern "C" {
 
+/* LabComm includes */
 #include <labcomm.h>
 #include <labcomm_default_memory.h>
 #include <labcomm_default_error_handler.h>
@@ -16,13 +22,13 @@ extern "C" {
 #include <labcomm_fd_reader.h>
 #include <labcomm_fd_writer.h>
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include "lc_types.h"
+/* Generated LabComm types. */
 #include "proto.h"
+#include "lc_types.h"
 
 }
 
+/* Generated config header. */
 #include "conf.h"
 
 class LabCommBridge {
