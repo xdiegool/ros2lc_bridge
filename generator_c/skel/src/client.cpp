@@ -9,10 +9,18 @@ extern "C" {
 #include <labcomm_default_memory.h>
 #include <labcomm_default_scheduler.h>
 
+/* C stuff */
+#include <stdio.h> /* For perror(). */
 }
+
+/* Networking */
+#include <sys/socket.h>
+#include <sys/types.h>
 
 /* Other */
 #include <stdexcept>
+#include <vector>
+#include <string>
 
 static void subscribe_callback(proto_subscribe *v, void *ctx)
 {
@@ -24,7 +32,10 @@ static void publish_callback(proto_publish *v, void *ctx)
 	((client *) ctx)->handle_publish(v);
 }
 
-client::client(int client_sock, ros::NodeHandle &n)
+client::client(int client_sock, ros::NodeHandle &n,
+		struct sockaddr_in *stat_addr,
+		std::vector<std::string> *subscribe_to,
+		std::vector<std::string> *publish_on)
 	: sock(client_sock),
 	  n(n),
 	  enc_lock(),
@@ -32,6 +43,24 @@ client::client(int client_sock, ros::NodeHandle &n)
 {
 	struct labcomm_reader *r;
 	struct labcomm_writer *w;
+
+	/* Check if we got a static address to connect to. */
+	if (stat_addr) {
+		int ret;
+		socklen_t len;
+
+		sock = socket(PF_INET, SOCK_STREAM, 0);
+		if (sock < 0)
+			throw std::runtime_error("stat_conn: socket() failed.");
+
+		len = (socklen_t) sizeof(struct sockaddr_in);
+		ret = connect(sock, (struct sockaddr *) stat_addr, len);
+		if (ret) {
+			close(sock);
+			perror(NULL);
+			throw std::runtime_error("stat_conn: connect() failed.");
+		}
+	}
 
 	/* TODO: Other reader/writer? */
 	r = labcomm_fd_reader_new(labcomm_default_memory, sock, 1);
@@ -60,6 +89,13 @@ client::client(int client_sock, ros::NodeHandle &n)
 	setup_imports();
 	setup_exports();
 	setup_services();
+
+	if (stat_addr) {
+		for(std::vector<std::string>::iterator it = subscribe_to->begin();
+				it != subscribe_to->end(); ++it) {
+			active_topics.insert(*it);
+		}
+	}
 }
 
 void client::run()

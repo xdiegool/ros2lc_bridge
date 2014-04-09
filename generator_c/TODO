@@ -2,6 +2,7 @@
 
 ## TOP PRIO
     * Get static connections to work.
+		- Which way is subscribe/publish in the static connection config?
 	* Break out `if in_array` stuff into a function.
     * Merge C++ generator with Python.
 	* Fix the topics_in/topics_out, which is which and switch them out for

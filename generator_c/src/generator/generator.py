@@ -52,8 +52,13 @@ client_file_begin = '''
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/locks.hpp>
 #include <set>
+#include <string>
+#include <vector>
 
 extern "C" {{
+
+#include <netinet/in.h>
+
 #include <labcomm.h>
 
 #include "proto.h"
@@ -103,7 +108,10 @@ client_ros_publisher_member = '''
 '''
 
 client_functions = '''
-	client(int sock, ros::NodeHandle &n);
+    client(int client_sock, ros::NodeHandle &n,
+            struct sockaddr_in *stat_addr = NULL,
+            std::vector<std::string> *subscribe_to = NULL,
+            std::vector<std::string> *publish_on = NULL);
 	~client()
 	{
 		labcomm_decoder_free(dec);
