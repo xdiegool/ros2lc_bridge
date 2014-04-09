@@ -801,7 +801,8 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         else: # primitive type
             if '[]' in typ:
                 # array_type = typ.replace('[]', '')
-                write_array(f, conv_map['array'], ros_varname, lc_varname, name, typ)
+                write_array(f, conv_map['array'], ros_varname, lc_varname,
+                            name, clean_type)
             elif typ == 'string':
                 write_string(f, conv_map, ros_varname, lc_varname, name)
             elif typ == 'time' or typ == 'duration':
