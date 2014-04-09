@@ -778,8 +778,9 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         elif typ == 'time' or typ == 'duraiton':
             write_time_duration(f, conv_map, rosvar, lcvar, name, True)
         elif len(get_nested(typ)) > 0:
-            convert_type(f, lc_ptr, ros_ptr, get_def(clean_type), rosvar,
-                         lcvar, direction, name, in_array=True)
+            convert_type(f, get_def(clean_type), direction, ros_varname=rosvar,
+                         lc_varname=lcvar, prefix=name, lc_ptr=lc_ptr,
+                         ros_ptr=ros_ptr, in_array=True)
         else:
             res = get_code(direction, 'default', True, ros_ptr, lc_ptr)
         append_free(res, rosvar, lcvar, name)
