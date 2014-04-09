@@ -2,6 +2,7 @@
 
 ## TOP PRIO
     * Get static connections to work.
+	* Break out `if in_array` stuff into a function.
     * Merge C++ generator with Python.
 
 ## LATER
