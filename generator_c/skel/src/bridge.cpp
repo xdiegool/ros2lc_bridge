@@ -24,10 +24,10 @@ static void accept_thread(int sock, ros::NodeHandle &n)
 		addr = inet_ntoa(client_addr.sin_addr);
 		ROS_INFO("Got client: %s", addr);
 
+		/* Create a new client and start in a new thread. */
 		client *c = new client(csock, n);
 		boost::thread client_thread(start_client, c);
 	}
-
 }
 
 void LabCommBridge::serve()

@@ -57,6 +57,7 @@ public:
 			throw std::runtime_error("bind() failed.");
 		}
 
+		/* Try to listen. */
 		ret = listen(sock, 5);
 		if (ret) {
 			close(sock);

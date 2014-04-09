@@ -33,7 +33,7 @@ client::client(int client_sock, ros::NodeHandle &n)
 	struct labcomm_reader *r;
 	struct labcomm_writer *w;
 
-	// TODO: Other reader/writer?
+	/* TODO: Other reader/writer? */
 	r = labcomm_fd_reader_new(labcomm_default_memory, sock, 1);
 	w = labcomm_fd_writer_new(labcomm_default_memory, sock, 1);
 	if (!w | !r) {
@@ -67,25 +67,30 @@ void client::run()
 	int res;
 	do {
 		res = labcomm_decoder_decode_one(dec);
-		if (res == -2) // Handle LabComm's weird use of ENOENT.
+
+		if (res == -2) /* Handle LabComm's weird use of ENOENT. */
 			ROS_WARN("Decode failed: Unknown type received.");
-		else if (res < 0)
+		else if (res < 0) /* Try to translate other errors. */
 			ROS_WARN("Decode failed: %s", strerror(-res));
+
 	} while (res > 0);
+
 	ROS_INFO("Connection closed. Client exiting.");
 }
 
+/* Called when the bridge receives a subscribe request. */
 void client::handle_subscribe(proto_subscribe *sub)
 {
 	ROS_INFO("Got subscribe request for topic: %s", sub->topic);
 	active_topics.insert(sub->topic);
 }
 
+/* Called when the bridge receives a publish request (currently unused). */
 void client::handle_publish(proto_publish *pub)
 {
 	ROS_INFO("Got publish request for topic: %s", pub->topic);
 }
 
-// Include generated code
+/* Include generated code. */
 #include "conv.cpp"
 
