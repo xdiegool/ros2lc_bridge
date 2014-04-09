@@ -660,7 +660,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 conversions = {
     'to_ros': {
         '': ('', False),
-        'default': ('\t{ros}.{name} = s->{name};\n', False),
+        'default': ('\t{ros}.{name} = {lc}->{name};\n', False),
         'array': {
             'default': ('\t{ros}.{name}[i] = {lc}->{name}.a[i];\n', False),
             'string': ('\t\t{ros}.{name}.push_back({lc}->{name}.a[i]);\n', False),
