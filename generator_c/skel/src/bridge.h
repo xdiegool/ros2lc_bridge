@@ -25,8 +25,6 @@ extern "C" {
 
 #include "conf.h"
 
-void subscriberCallback(proto_subscribe *v, void *ctx);
-
 class LabCommBridge {
 protected:
 	ros::NodeHandle n;
@@ -67,8 +65,6 @@ public:
 	}
 
 	void serve();
-
-	// void handleSubscribe(proto_subscribe *sub);
 };
 
 #endif
