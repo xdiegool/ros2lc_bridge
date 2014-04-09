@@ -726,15 +726,13 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
     '''
     conv_map = conversions[direction]
 
-    free_list = None
-    if direction == 'to_lc':
-        free_list = []
+    free_list = []
 
     def append_free(stmt, rosvar, lcvar, name):
-        if free_list and stmt[1]:
+        if stmt[1]:
             defined = stmt[0].split('=')[0].strip()
             if 'alloc_array' in stmt[0]:
-                defined = 's.{name}.a' #TODO: This should be extracted from stmt[0]
+                defined = '{lc}.{name}.a' #TODO: This should be extracted from stmt[0]
             free_list.append(defined.format(ros=rosvar,lc=lcvar,name=name))
 
     def write_string(f, conv_map, rosvar, lcvar, name, in_array_local = False):
