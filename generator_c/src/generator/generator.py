@@ -661,6 +661,7 @@ conversions = {
     'to_ros': {
         '': ('', False),
         'default': ('\t{ros}.{name} = {lc}->{name};\n', False),
+        'ddefault': ('\t{ros}.{rosname} = {lc}->{lcname};\n', False),
         'array': {
             'default': ('\t{ros}.{name}[i] = {lc}->{name}.a[i];\n', False),
             'string': ('\t\t{ros}.{name}.push_back({lc}->{name}.a[i]);\n', False),
@@ -682,6 +683,7 @@ conversions = {
     'to_lc': {
         '': ('', False),
         'default': ('\t{lc}.{name} = {ros}.{name};\n', False),
+        'ddefault': ('\t{lc}.{lcname} = {ros}.{rosname};\n', False),
         'array': {
             'default': ('\t{lc}.{name}.a[i] = {ros}.{name}[i];\n', False),
             'string': ('\t\t{lc}.{name}.a[i] = strdup({ros}.{name}[i].c_str());\n', True),
@@ -831,9 +833,18 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
                 res = get_code(direction, '', False, ros_ptr, lc_ptr)
                 f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
             else: # primitive types, just copy
-                res = get_code(direction, 'default', False, ros_ptr, lc_ptr)
-                append_free(res, ros_varname, lc_varname, name)
-                f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
+                if in_array: # Not a nice hack... Should probably do better
+                    res = get_code(direction, 'ddefault', False, ros_ptr, lc_ptr)
+                    parts = name.split('.')
+                    lcname = parts[0] + '.a[i].' + parts[1]
+                    rosname = parts[0] + '[i].' + parts[1]
+                    append_free(res, ros_varname, lc_varname, lcname)
+                    f.write(res[0].format(ros=ros_varname,lc=lc_varname,
+                                          lcname=lcname,rosname=rosname))
+                else:
+                    res = get_code(direction, 'default', False, ros_ptr, lc_ptr)
+                    append_free(res, ros_varname, lc_varname, name)
+                    f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
 
     return free_list
 
