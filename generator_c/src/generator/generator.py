@@ -674,6 +674,8 @@ conversions = {
         },
         'time': (('\t{ros}.{name}.sec = {lc}->{name}.secs;\n'
                   '\t{ros}.{name}.nsec = {lc}->{name}.nsecs;\n'), False),
+        'ttime': (('\t{ros}.{rosname}.sec = {lc}->{lcname}.secs;\n'
+                  '\t{ros}.{rosname}.nsec = {lc}->{lcname}.nsecs;\n'), False),
         'string': ('\t{ros}.{name} = {lc}->{name};\n', False),
         'sstring': ('\t{ros}.{rosname} = {lc}->{lcname};\n', False)
     },
@@ -695,6 +697,8 @@ conversions = {
         },
         'time': (('\t{lc}.{name}.secs = {ros}.{name}.sec;\n'
                   '\t{lc}.{name}.nsecs = {ros}.{name}.nsec;\n'), False),
+        'ttime': (('\t{lc}.{lcname}.secs = {ros}.{rosname}.sec;\n'
+                  '\t{lc}.{lcname}.nsecs = {ros}.{rosname}.nsec;\n'), False),
         'string': ('\t{lc}.{name} = strdup({ros}.{name}.c_str());\n', True),
         'sstring': ('\t{lc}.{lcname} = strdup({ros}.{rosname}.c_str());\n', True)
     }
@@ -759,13 +763,21 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
             append_free(res, rosvar, lcvar, name)
             f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
 
-    def write_time_duration(f, conv_map, rosvar, lcvar, name, in_array = False):
+    def write_time_duration(f, conv_map, rosvar, lcvar, name, in_array_local = False):
         '''Helper function for writing conversion code for Time or Duration
         (which are primitive types in ROS msgs).
         '''
-        res = get_code(direction, 'time', in_array, ros_ptr, lc_ptr)
-        append_free(res, rosvar, lcvar, name)
-        f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
+        if in_array: # Not a nice hack... Should probably do better
+            res = get_code(direction, 'ttime', in_array_local, ros_ptr, lc_ptr)
+            parts = name.split('.')
+            lcname = parts[0] + '.a[i].' + parts[1]
+            rosname = parts[0] + '[i].' + parts[1]
+            append_free(res, rosvar, lcvar, lcname)
+            f.write(res[0].format(ros=rosvar,lc=lcvar,lcname=lcname,rosname=rosname))
+        else:
+            res = get_code(direction, 'time', in_array_local, ros_ptr, lc_ptr)
+            append_free(res, rosvar, lcvar, name)
+            f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
 
     def write_array(f, conv_map, rosvar, lcvar, name, typ):
         '''Helper function for writing conversion code for arrays.'''
