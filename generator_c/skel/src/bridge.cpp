@@ -19,8 +19,8 @@ static void accept_thread(int sock, ros::NodeHandle &n)
 {
 	ROS_INFO("Bridge waiting...");
 	while (ros::ok()) {
-		struct sockaddr_in client_addr;
 		socklen_t addrlen;
+		struct sockaddr_in client_addr;
 		int csock;
 		char *addr;
 

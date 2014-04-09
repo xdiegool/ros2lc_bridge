@@ -29,12 +29,12 @@ class LabCommBridge {
 protected:
 	ros::NodeHandle n;
 	int sock;
-	struct sockaddr_in addr;
 
 public:
 	LabCommBridge() : n()
 	{
 		int ret = 0;
+		struct sockaddr_in addr;
 
 		/* Open socket */
 		sock = socket(PF_INET, SOCK_STREAM, 0);
