@@ -1,7 +1,6 @@
 # TODO for C++
 
 ## TOP PRIO
-	* Check if time/duration types works in arrays.
     * Get static connections to work.
     * Merge C++ generator with Python.
 
