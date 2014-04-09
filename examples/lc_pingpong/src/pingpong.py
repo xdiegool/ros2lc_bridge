@@ -40,12 +40,12 @@ class Pingpong:
         while True:
             value, decl = self.dec.decode()
             if value:
-                print decl.name, 'says:', value.data
+                print decl.name, 'says:', value.s
             print "recving"
 
     def send_ping(self):
         ping = lc_types.S__ping()
-        ping.data = "EHLO %d" % self.counter
+        ping.s = "EHLO %d" % self.counter
         self.counter += 1
         print "sending"
         self.enc.encode(ping, ping.signature)
