@@ -64,22 +64,22 @@ void client::run()
 	do {
 		res = labcomm_decoder_decode_one(dec);
 		if (res == -2) // Handle LabComm's weird use of ENOENT.
-			std::cout << "Decode failed: Unknown type received." << std::endl;
+			ROS_WARN("Decode failed: Unknown type received.");
 		else if (res < 0)
-			std::cout << "Decode failed: " << strerror(-res) << std::endl;
+			ROS_WARN("Decode failed: %s", strerror(-res));
 	} while (res > 0);
-	std::cout << "Connection closed. Client exiting." << std::endl;
+	ROS_INFO("Connection closed. Client exiting.");
 }
 
 void client::handle_subscribe(proto_subscribe *sub)
 {
-	std::cout << "Got subscribe request for topic: " << sub->topic << std::endl;
+	ROS_INFO("Got subscribe request for topic: %s", sub->topic);
 	active_topics.insert(sub->topic);
 }
 
 void client::handle_publish(proto_publish *pub)
 {
-	std::cout << "Got publish request for topic: " << pub->topic << std::endl;
+	ROS_INFO("Got publish request for topic: %s", pub->topic);
 }
 
 // Include generated code

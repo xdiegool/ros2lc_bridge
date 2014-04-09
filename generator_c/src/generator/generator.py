@@ -833,8 +833,7 @@ def write_send(f, topic):
     lc_topic = msg2id(topic)
     f.write(('\t// Send converted data (use boost::lock_guard for locking).\n'
              '\tboost::lock_guard<boost::mutex> enc_guard(enc_lock);\n'
-             '\tlabcomm_encode_lc_types_{lc_topic}(enc, &conv);\n'
-	         '\tstd::cout << "send LC" << std::endl;\n')
+             '\tlabcomm_encode_lc_types_{lc_topic}(enc, &conv);\n')
              .format(lc_topic=lc_topic))
 
 

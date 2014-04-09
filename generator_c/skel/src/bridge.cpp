@@ -27,7 +27,7 @@ static void accept_thread(int sock, ros::NodeHandle &n)
 		addrlen = sizeof(struct sockaddr_in);
 		csock = accept(sock, (struct sockaddr *) &client_addr, &addrlen);
 		addr = inet_ntoa(client_addr.sin_addr);
-		std::cout << "Got client: " << addr << std::endl;
+		ROS_INFO("Got client: %s", addr);
 
 		client *c = new client(csock, n);
 		boost::thread client_thread(start_client, c);
