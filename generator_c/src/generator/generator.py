@@ -670,7 +670,7 @@ conversions = {
             'alloc': (('\t{ros}.{name}.clear();\n'
                        '\tfor (int i = 0; i < {lc}->{name}.n_0; i++) {{\n'),
                        False),
-            'end': ('\t}', False)
+            'end': ('\t}}', False)
         },
         'time': (('\t{ros}.{name}.sec = {lc}->{name}.secs;\n'
                   '\t{ros}.{name}.nsec = {lc}->{name}.nsecs;\n'), False),
