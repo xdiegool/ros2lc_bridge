@@ -720,6 +720,19 @@ splitter = re.compile(r'[ =]')
 def convert_type(f, definition, direction, ros_varname = '', lc_varname = '', 
                  prefix = '', lc_ptr = False, ros_ptr = False, in_array = False):
     '''Writes the conversion code for types.
+
+    :param f: the file to write to.
+    :param definition: the ROS type definition to convert to/from.
+    :param direction: the direction to convert to (e.g. 'to_ros' or 'to_lc').
+    :param ros_varname: the ROS variable name to use in the generated code.
+    :param lc_varname: the LabComm variable name to use in the generated code.
+    :param prefix: a possible prefix to prepend to the name, mostly only used
+                   internally when writing non-primitive types.
+    :param lc_ptr: boolean whether the generated code uses pointers for the
+                   LabComm variable.
+    :param ros_ptr: boolean whether the generated code uses pointers for the
+                    ROS variable.
+    :param in_array: used internally to keep state when writing arrays.
     '''
     conv_map = conversions[direction]
 
