@@ -763,7 +763,7 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         res = get_code(direction, 'alloc', True, ros_ptr, lc_ptr)
         append_free(res, rosvar, lcvar, name)
         f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
-        res = ('',)
+        res = ('',False)
         if typ == 'string':
             write_string(f, conv_map, rosvar, lcvar, name, True)
         elif typ == 'time' or typ == 'duraiton':
