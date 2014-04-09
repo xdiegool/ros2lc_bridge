@@ -4,6 +4,8 @@
     * Get static connections to work.
 	* Break out `if in_array` stuff into a function.
     * Merge C++ generator with Python.
+	* Fix the topics_in/topics_out, which is which and switch them out for
+	  export and import FFS.
 
 ## LATER
     * Perhaps keep a pool of service threads per client to avoid spawning new
