@@ -617,7 +617,6 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         convf.write(subscriber_cb_fn_begin.format(topic_name=topic_name,
                                                   topic_type=topic_type_cpp))
         # Write conversion from ROS to LabComm.
-        # free_list = write_conversion(convf, get_def(topic_type))
         free_list = convert_type(convf, get_def(topic_type), 'to_lc',
                                  lc_ptr=False, ros_ptr=True, ros_varname='msg',
                                  lc_varname='conv')
@@ -633,7 +632,6 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                               cpp_topic_type=topic_type_cpp))
         convert_type(convf, definition, 'to_ros', lc_ptr=True, ros_ptr=False,
                      ros_varname='msg', lc_varname='sample')
-        # lc2ros_conversion(convf, topic, definition)
         convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
 
     # Write LabComm callbacks that converts to ROS msgs.
@@ -656,7 +654,6 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         convert_type(convf, definition[1], 'to_lc', lc_ptr=False,
                 ros_ptr=False, ros_varname='msg.response', lc_varname='res')
         convf.write(service_call_callback_end.format(lc_name=lc_name))
-        #convf.write(end_fn.format(topic_name=cpp_type))
 
 
 
@@ -754,7 +751,6 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         (which are primitive types in ROS msgs).
         '''
         res = get_code(direction, 'time', in_array, ros_ptr, lc_ptr)
-        # res = conv_map['time'] if in_array else conv_map['time']
         append_free(res, rosvar, lcvar, name)
         f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
 
@@ -769,12 +765,10 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         elif typ == 'time' or typ == 'duraiton':
             write_time_duration(f, conv_map, rosvar, lcvar, name, True)
         elif len(get_nested(typ)) > 0:
-            convert_type(f, lc_ptr, ros_ptr, get_def(clean_type),
-                                      rosvar, lcvar, direction, name,
-                                      in_array=True)
+            convert_type(f, lc_ptr, ros_ptr, get_def(clean_type), rosvar,
+                         lcvar, direction, name, in_array=True)
         else:
             res = get_code(direction, 'default', True, ros_ptr, lc_ptr)
-            # res = conv_map['default']
         append_free(res, rosvar, lcvar, name)
         f.write(res[0].format(ros=rosvar,lc=lcvar,name=name))
         res = conv_map['end']
@@ -812,7 +806,6 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
                 f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
             else: # primitive types, just copy
                 res = get_code(direction, 'default', False, ros_ptr, lc_ptr)
-                # res = conv_map['default']
                 append_free(res, ros_varname, lc_varname, name)
                 f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
 
