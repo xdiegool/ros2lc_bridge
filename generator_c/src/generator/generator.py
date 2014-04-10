@@ -26,6 +26,7 @@ SRV_RET_SUFFIX      = '_RET'
 CONVERSION_FILENAME = 'conv.cpp'
 CLIENT_FILENAME     = 'client.h'
 CONFIG_FILENAME     = 'conf.h'
+GENBRIDGE__FILENAME = 'gen_bridge.cpp'
 
 
 ## Boilerplate content to output.
@@ -405,7 +406,7 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue, ecol=red):
 
 
 def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
-               client_file, mlc, mpy):
+               client_file, static_conns_file, mlc, mpy):
     """Create ROS package in the first dicectory in $ROS_PACKAGE_PATH, or /tmp/, unless explicitly specified."""
     if not ws:
         pkg_path = os.environ.get('ROS_PACKAGE_PATH')
@@ -445,6 +446,8 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
         os.rename(conv_file, os.path.join(srcdir, CONVERSION_FILENAME))
         # Move generated client definition to package.
         os.rename(client_file, os.path.join(srcdir, CLIENT_FILENAME))
+        # Move generated client definition to package.
+        os.rename(static_conns_file, os.path.join(srcdir, GENBRIDGE__FILENAME))
 
         # Make sure LabComm library env exists.
         lclibpath = os.environ.get('LABCOMM')
@@ -887,6 +890,74 @@ def write_free(f, free_list):
         else:
             f.write('\tfree({name});\n'.format(name=name))
 
+static_conns_begin = '''
+#include <cstring>
+
+void LabCommBridge::setup_static()
+{{
+'''
+
+static_conns_decl = '''
+	struct sockaddr_in addr;
+	std::vector<std::string> subs;
+	std::vector<std::string> pubs;
+	client *c;
+
+'''
+
+static_conns_content = '''
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	inet_pton(AF_INET, "{addr}", &addr.sin_addr);
+	addr.sin_port = htons({port});
+'''
+
+static_conns_loop = '''
+	for (int j = 0; j < {ln}; j++) {{'''
+
+static_conns_pubsub = '''
+		{method}.push_back("{name}");
+'''
+
+static_conns_content_end = '''
+	c = new client(-1, n, &addr, &subs, &pubs);
+	boost::thread client_thread{n}(start_client, c);
+	subs.clear();
+	pubs.clear();
+
+'''
+
+def write_statics(f, pkg_name, static_connections):
+    f.write(static_conns_begin.format(ln=len(static_connections)))
+
+    # Write declarations.
+    f.write(static_conns_decl)
+
+    i = 0
+    for conn in static_connections:
+        addr = conn.split(':')[0]
+        port = conn.split(':')[1]
+        subs = static_connections[conn]['subscribe']
+        pubs = static_connections[conn]['publish']
+
+        f.write(static_conns_content.format(addr=addr,port=port))
+        f.write(static_conns_loop.format(ln=len(subs)))
+        # Populate subscriber list.
+        for sub in subs:
+            f.write(static_conns_pubsub.format(method='subs',name=sub))
+        f.write('\t' + end_fn)
+
+        # Populate publisher list.
+        f.write(static_conns_loop.format(ln=len(pubs)))
+        for pub in pubs:
+            f.write(static_conns_pubsub.format(method='pubs',name=sub))
+        f.write('\t' + end_fn)
+
+        f.write(static_conns_content_end.format(n=i))
+        i += 1
+
+    f.write(end_fn)
+
 
 def get_srv_types():
     slist = sh('rosservice list')[1]
@@ -961,6 +1032,12 @@ def run(conf, ws, force):
                services_used, service_defs, cf.static, cf.conversions)
     convfil.close()
 
+    # C++ static connections.
+    (statfd, statnam) = mkstemp('.cpp')
+    statfil = os.fdopen(statfd, 'w')
+    write_statics(statfil, cf.name, cf.static)
+    statfil.close()
+
     req_topics = {}
     for t in topics_in + topics_out:
         req_topics[t] = topics[t]
@@ -980,7 +1057,7 @@ def run(conf, ws, force):
         deps.add(dep[:dep.index('/')])
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam, convnam, clientnam,
-                      cf.lc_files(), cf.py_files())
+                      statnam, cf.lc_files(), cf.py_files())
 
 
 if __name__ == '__main__':
