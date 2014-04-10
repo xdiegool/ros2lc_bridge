@@ -1078,6 +1078,8 @@ if __name__ == '__main__':
         run(opt.conf, opt.ws, opt.force)
     except (GeneratorException, ConfigException, IOError) as e:
         sys.stderr.write(red(e) + '\n')
+        sys.exit(1)
     except ET.ParseError as e:
         sys.stderr.write(red("Parse error in config file '%s': %s\n" %
                              (opt.conf, e)))
+        sys.exit(1)
