@@ -49,9 +49,11 @@ client::client(int client_sock, ros::NodeHandle &n,
 		int ret;
 		socklen_t len;
 
-		sock = socket(PF_INET, SOCK_STREAM, 0);
-		if (sock < 0)
+		sock = socket(AF_INET, SOCK_STREAM, 0);
+		if (sock < 0) {
+			perror(NULL);
 			throw std::runtime_error("stat_conn: socket() failed.");
+		}
 
 		len = (socklen_t) sizeof(struct sockaddr_in);
 		ret = connect(sock, (struct sockaddr *) stat_addr, len);
