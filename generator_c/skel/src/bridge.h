@@ -64,6 +64,7 @@ public:
 			throw std::runtime_error("listen() failed.");
 		}
 
+		setup_static();
 	}
 
 	~LabCommBridge()
@@ -72,6 +73,7 @@ public:
 	}
 
 	void serve();
+	void setup_static();
 };
 
 #endif

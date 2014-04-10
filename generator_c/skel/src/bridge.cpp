@@ -4,10 +4,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <stdio.h>
 
 static void start_client(client *c)
 {
 	c->run();
+	delete c;
 }
 
 static void accept_thread(int sock, ros::NodeHandle &n)
@@ -45,3 +47,5 @@ int main(int argc, char** argv)
 
 	return 0;
 }
+
+#include "gen_bridge.cpp"
