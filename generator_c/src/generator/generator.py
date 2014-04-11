@@ -930,31 +930,32 @@ static_conns_content_end = '''
 def write_statics(f, pkg_name, static_connections):
     f.write(static_conns_begin.format(ln=len(static_connections)))
 
-    # Write declarations.
-    f.write(static_conns_decl)
+    if len(static_connections) > 0:
+        # Write declarations.
+        f.write(static_conns_decl)
 
-    i = 0
-    for conn in static_connections:
-        addr = conn.split(':')[0]
-        port = conn.split(':')[1]
-        subs = static_connections[conn]['subscribe']
-        pubs = static_connections[conn]['publish']
+        i = 0
+        for conn in static_connections:
+            addr = conn.split(':')[0]
+            port = conn.split(':')[1]
+            subs = static_connections[conn]['subscribe']
+            pubs = static_connections[conn]['publish']
 
-        f.write(static_conns_content.format(addr=addr,port=port))
-        f.write(static_conns_loop.format(ln=len(subs)))
-        # Populate subscriber list.
-        for sub in subs:
-            f.write(static_conns_pubsub.format(method='subs',name=sub))
-        f.write('\t' + end_fn)
+            f.write(static_conns_content.format(addr=addr,port=port))
+            f.write(static_conns_loop.format(ln=len(subs)))
+            # Populate subscriber list.
+            for sub in subs:
+                f.write(static_conns_pubsub.format(method='subs',name=sub))
+            f.write('\t' + end_fn)
 
-        # Populate publisher list.
-        f.write(static_conns_loop.format(ln=len(pubs)))
-        for pub in pubs:
-            f.write(static_conns_pubsub.format(method='pubs',name=sub))
-        f.write('\t' + end_fn)
+            # Populate publisher list.
+            f.write(static_conns_loop.format(ln=len(pubs)))
+            for pub in pubs:
+                f.write(static_conns_pubsub.format(method='pubs',name=sub))
+            f.write('\t' + end_fn)
 
-        f.write(static_conns_content_end.format(n=i))
-        i += 1
+            f.write(static_conns_content_end.format(n=i))
+            i += 1
 
     f.write(end_fn)
 
