@@ -1,4 +1,4 @@
 build
 bin
 srv_gen
-src/test_service/
+src/add_two_ints_srv

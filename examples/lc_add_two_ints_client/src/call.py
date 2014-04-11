@@ -36,19 +36,22 @@ class AddTwoIntsCilent(object):
 
         # Run and time requests.
         for i in range(0, iterations):
-            start = time.time()
+            start = time.time()*1000
             self.e.encode(req, req.signature)
 
             value, decl = self.d.decode()
             while not value:
                 value, decl = self.d.decode()
 
-            end = time.time()
+            end = time.time()*1000
             times.append(end-start)
 
         variance = numpy.std(times)
         mean = numpy.mean(times)
-        print 'Got', iterations, (u'results in %.3fms (\u00B1 %.6f).' % (mean*1000.0, variance))
+        maxi = max(times)
+        mini = min(times)
+        out = u'Got %d results in %.3fms (\u00B1 %.6f, min %f, max %f).'
+        print out % (iterations,mean, variance, mini, maxi)
 
     def call_get_loggers(self):
         '''Calls the add_two_ints/get_loggers service to test more elaborate

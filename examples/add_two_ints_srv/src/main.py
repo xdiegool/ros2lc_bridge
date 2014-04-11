@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import roslib; roslib.load_manifest('test_service')
-from test_service.srv import *
+import roslib; roslib.load_manifest('add_two_ints_srv')
+from add_two_ints_srv.srv import *
 import rospy
 
 def handle_add_two_ints(req):
