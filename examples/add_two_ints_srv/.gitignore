@@ -1,0 +1,4 @@
+build
+bin
+srv_gen
+src/test_service/
