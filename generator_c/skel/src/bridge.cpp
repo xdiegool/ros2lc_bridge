@@ -19,11 +19,11 @@ static void accept_thread(int sock, ros::NodeHandle &n)
 		socklen_t addrlen;
 		struct sockaddr_in client_addr;
 		int csock;
-		char *addr;
+		char addr[INET_ADDRSTRLEN];
 
 		addrlen = sizeof(struct sockaddr_in);
 		csock = accept(sock, (struct sockaddr *) &client_addr, &addrlen);
-		addr = inet_ntoa(client_addr.sin_addr);
+		inet_ntop(AF_INET, &client_addr.sin_addr, addr, INET_ADDRSTRLEN);
 		ROS_INFO("Got client: %s", addr);
 
 		/* Create a new client and start in a new thread. */
