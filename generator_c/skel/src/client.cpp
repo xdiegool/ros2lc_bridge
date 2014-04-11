@@ -67,9 +67,10 @@ client::client(int client_sock, ros::NodeHandle &n,
 	/* TODO: Other reader/writer? */
 	r = labcomm_fd_reader_new(labcomm_default_memory, sock, 1);
 	w = labcomm_fd_writer_new(labcomm_default_memory, sock, 1);
-	if (!w | !r) {
+	if (!w || !r) {
 		free(w);
 		free(r);
+		close(sock);
 		throw std::runtime_error("Failed to create reader/writer.");
 	}
 
@@ -79,9 +80,10 @@ client::client(int client_sock, ros::NodeHandle &n,
 	dec = labcomm_decoder_new(r, labcomm_default_error_handler,
 							  labcomm_default_memory,
 							  labcomm_default_scheduler);
-	if (!enc | !dec) {
+	if (!enc || !dec) {
 		labcomm_encoder_free(enc);
 		labcomm_decoder_free(dec);
+		close(sock);
 		throw std::runtime_error("Failed to create encoder/decoder.");
 	}
 
