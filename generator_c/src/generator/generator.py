@@ -512,7 +512,7 @@ def write_conf(f, bname, port):
                                 slash_substitute=SLASHSUB))
 
 def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
-               topics_types, services, service_defs, static_conns, conversions):
+               topics_types, services, service_defs, conversions):
     '''Writes the definition of the client class as well as conversion code.
 
     The client class handles subscribing to and publishing on topics as well as
@@ -527,7 +527,6 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
     :param topics_types: a dict of topic names => topic types.
     :param services: a list of services that should be exported.
     :param service_defs: a dict of a service=>type mappings
-    :param static_conns: a list of static connections(probably obsolete in C++)
     :param conversions: a list of conversions specified by the user (obsolete in C++)
     '''
     # Write define stuff
@@ -1030,7 +1029,7 @@ def run(conf, ws, force):
     convfil = os.fdopen(convfd, 'w')
     write_conv(clientfil, convfil, cf.name,
                topics_in, topics_out, topics_types,
-               services_used, service_defs, cf.static, cf.conversions)
+               services_used, service_defs, cf.conversions)
     convfil.close()
 
     # C++ static connections.
