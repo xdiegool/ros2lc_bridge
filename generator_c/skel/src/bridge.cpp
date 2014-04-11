@@ -6,29 +6,38 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 
-static void start_client(client *c)
+static void start_client(int csock, struct sockaddr_in *client_addr,
+		ros::NodeHandle &n)
 {
+	char	addr[INET_ADDRSTRLEN];
+	client	*c;
+
+	/* Convert and print the client's address. */
+	inet_ntop(AF_INET, &client_addr->sin_addr, addr, INET_ADDRSTRLEN);
+	ROS_INFO("Got client: %s", addr);
+
+	/* Create a new client and start in a new thread. */
+	c = new client(csock, n);
 	c->run();
+
 	delete c;
 }
 
 static void accept_thread(int sock, ros::NodeHandle &n)
 {
+	socklen_t addrlen;
+
+	addrlen = sizeof(struct sockaddr_in);
+
 	ROS_INFO("Bridge waiting...");
 	while (ros::ok()) {
-		socklen_t addrlen;
-		struct sockaddr_in client_addr;
-		int csock;
-		char addr[INET_ADDRSTRLEN];
+		struct sockaddr_in	client_addr;
+		int					csock;
 
-		addrlen = sizeof(struct sockaddr_in);
 		csock = accept(sock, (struct sockaddr *) &client_addr, &addrlen);
-		inet_ntop(AF_INET, &client_addr.sin_addr, addr, INET_ADDRSTRLEN);
-		ROS_INFO("Got client: %s", addr);
 
-		/* Create a new client and start in a new thread. */
-		client *c = new client(csock, n);
-		boost::thread client_thread(start_client, c);
+		/* Start thread to handle the client. */
+		boost::thread client_thread(start_client, csock, &client_addr, n);
 	}
 }
 
