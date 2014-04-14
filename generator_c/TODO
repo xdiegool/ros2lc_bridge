@@ -3,6 +3,7 @@
 ## TOP PRIO
 	* Break out `if in_array` stuff into a function.
 	* Implement some sort of custom conversion code. C or Lua?
+	* Change <py /> tag in config to something more generic.
     * Merge C++ generator with Python.
 	* Fix the topics_in/topics_out, which is which and switch them out for
 	  export and import FFS.
