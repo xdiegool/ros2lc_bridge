@@ -32,6 +32,23 @@ GENBRIDGE__FILENAME = 'gen_bridge.cpp'
 ## Boilerplate content to output.
 #################################
 
+cmake_add_exec_begin = '''
+rosbuild_add_executable(main
+    src/hack.c
+    src/lc_types.c
+    src/proto.c'''
+
+cmake_custom_conv = '''
+    src/{f}'''
+
+cmake_add_exec_end = '''
+    src/client.cpp
+    src/bridge.cpp
+)
+target_link_libraries(main {lc_lib})
+include_directories({lc_inc})
+'''
+
 conf_content = '''
 #ifndef {pkg_name}_CONF_C
 #define {pkg_name}_CONF_C
@@ -156,7 +173,7 @@ subscriber_cb_fn_end = '''
 lc2ros_cb_fn_begin = '''
 void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx)
 {{
-\t{cpp_topic_type} msg;
+	{cpp_topic_type} msg;
 '''
 
 lc2ros_cb_fn_end = '''
@@ -475,18 +492,10 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
             shutil.copy(py, srcdir)
 
         # TODO: Ugly. Fix better way...
-        with open('%s/CMakeLists.txt' % d, 'a') as buildfile:
-            buildfile.write('''
-rosbuild_add_executable(main
-    src/hack.c
-    src/lc_types.c
-    src/proto.c
-    src/client.cpp
-    src/bridge.cpp
-)
-target_link_libraries(main {lc_lib})
-include_directories({lc_inc})'''.format(lc_lib=lclibpath + '/liblabcomm.a',
-                                        lc_inc=lclibpath))
+        with open('%s/CMakeLists.txt' % d, 'a') as bf:
+            bf.write(cmake_add_exec_begin)
+            bf.write(cmake_add_exec_end.format(lc_lib=lclibpath+'/liblabcomm.a',
+                                               lc_inc=lclibpath))
 
         # Fix permissions
         # os.chmod(('%s/' + CONFIG_FILENAME) % srcdir,
@@ -499,7 +508,6 @@ include_directories({lc_inc})'''.format(lc_lib=lclibpath + '/liblabcomm.a',
         # sh('rm -fr ' + d)       # Clean up
         raise e
     return d
-
 
 def write_conf(f, bname, port):
     '''Writes the conf.h header file.
