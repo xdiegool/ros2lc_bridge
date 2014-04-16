@@ -18,4 +18,4 @@ lc: build_bridge
 	@echo
 
 build_bridge:
-	rosrun generator_c generator.py -c conf.xml
+	rosrun generator_c generator.py -c conf.xml -f
