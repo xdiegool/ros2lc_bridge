@@ -118,7 +118,7 @@ client_ros_subscriber_members = '''
 '''
 
 client_ros_service_members = '''
-	void call_srv_{srv_name}(lc_types_{lc_par_type} *s);
+	void call_srv_{srv_name}({cpp_type} *msg);
 '''
 
 client_ros_publisher_member = '''
@@ -184,20 +184,23 @@ service_call_func = '''
 static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v)
 {{
 	client *c = (client *) v;
-	boost::thread call_service(&client::call_srv_{lc_name}, c, s);
+	{cpp_type} *msg = new {cpp_type}();
+'''
+
+service_call_start_thread = '''
+	boost::thread call_service(&client::call_srv_{lc_name}, c, msg);
 }}
 '''
 
 service_call_callback_begin = '''
-void client::call_srv_{lc_name}(lc_types_{lc_par_type} *s)
+void client::call_srv_{lc_name}({cpp_type} *msg)
 {{
-	{cpp_type} msg;
 '''
 
 service_call_callback_call_srv = '''
 	ros::ServiceClient client;
 	client = n.serviceClient<{cpp_type}>("{srv_name}");
-	if (client.call(msg)) {{
+	if (client.call(*msg)) {{
 		// TODO: convert back to LC.
 		lc_types_{lc_ret_type} res;
 '''
@@ -207,6 +210,8 @@ service_call_callback_end = '''
 	}} else {{
 		//TODO: Fail
 	}}
+
+    delete msg;
 }}
 '''
 
@@ -579,10 +584,10 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                                          topic_type=topic_type))
     for service in services:
         lc_name = msg2id(service)
-        lc_par_type = lc_name + SRV_PAR_SUFFIX
         lc_ret_type = lc_name + SRV_RET_SUFFIX
+        cpp_type = get_srv_type(service).replace('/', '::')
         clientf.write(client_ros_service_members.format(srv_name=lc_name,
-                                                       lc_par_type=lc_par_type))
+                                                        cpp_type=cpp_type))
         clientf.write(service_call_respond.format(lc_name=lc_name,
                                                   lc_ret_type=lc_ret_type))
 
@@ -616,7 +621,6 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
     # Write LC callbacks for services.
     for service in services:
-        ros_type = get_srv_type(service)
         lc_name = msg2id(service)
         lc_par_type = lc_name + SRV_PAR_SUFFIX
         lc_ret_type = lc_name + SRV_RET_SUFFIX
@@ -626,6 +630,11 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                                lc_ret_type=lc_ret_type,
                                                cpp_type=cpp_type,
                                                ros_name=service))
+        definition = service_defs[get_srv_type(service)]
+        convert_type(clientf, definition[0], 'to_ros', lc_ptr=False,
+                     ros_ptr=False, ros_varname='msg->request', lc_varname='s')
+        clientf.write(service_call_start_thread.format(lc_name=lc_name))
+        # clientf.write('}\n')
 
     # Write subscriber callbacks that converts to LabComm samples.
     for topic in topics_out:
@@ -663,14 +672,12 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         convf.write(service_call_callback_begin.format(lc_name=lc_name,
                                                        lc_par_type=lc_par_type,
                                                        cpp_type=cpp_type))
-        convert_type(convf, definition[0], 'to_ros', lc_ptr=False,
-                     ros_ptr=False, ros_varname='msg.request', lc_varname='s')
         convf.write(service_call_callback_call_srv.format(srv_name=service,
                                                           cpp_type=cpp_type,
                                                           lc_ret_type=lc_ret_type,
                                                           lc_name=lc_name))
         convert_type(convf, definition[1], 'to_lc', lc_ptr=False,
-                ros_ptr=False, ros_varname='msg.response', lc_varname='res')
+                ros_ptr=False, ros_varname='msg->response', lc_varname='res')
         convf.write(service_call_callback_end.format(lc_name=lc_name))
 
 
