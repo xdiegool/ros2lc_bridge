@@ -432,7 +432,7 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue, ecol=red):
 
 
 def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
-               client_file, static_conns_file, mlc, mpy):
+               client_file, static_conns_file, mlc, mpy, conversions):
     """Create ROS package in the first dicectory in $ROS_PACKAGE_PATH, or /tmp/, unless explicitly specified."""
     if not ws:
         pkg_path = os.environ.get('ROS_PACKAGE_PATH')
@@ -1076,7 +1076,7 @@ def run(conf, ws, force):
         deps.add(dep[:dep.index('/')])
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam, convnam, clientnam,
-                      statnam, cf.lc_files(), cf.py_files())
+                      statnam, cf.lc_files(), cf.py_files(), cf.conversions)
 
 
 if __name__ == '__main__':
