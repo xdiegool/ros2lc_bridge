@@ -296,15 +296,19 @@ def get_def(tnam):
     return defs_cache[tnam]
 
 
+srv_defs_cache = {}
 def get_srv_def(snam):
     """Invoke a ROS utility to get a service type definition."""
+    if snam in srv_defs_cache:
+        return srv_defs_cache[snam]
     ok, out = sh('rossrv show %s' % snam)
     for r in cleanup:
         out = r.sub('', out)
     b = out.index('---')
     params  = out[:b].strip()
     retvals = out[b+3:].strip()
-    return (params, retvals)
+    srv_defs_cache[snam] = (params, retvals)
+    return srv_defs_cache[snam]
 
 
 def get_nested(defn):
