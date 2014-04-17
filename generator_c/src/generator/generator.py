@@ -877,17 +877,17 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
 
     return free_list
 
-def write_send(f, topic):
+def write_send(f, topic, name, lc_prefix='lc_types', indent=1):
     '''Writes the code to send the converted data.
     
     :param f: the file handle to write to.
     :param topic: the topic being converted.
     '''
     lc_topic = msg2id(topic)
-    f.write(('\t// Send converted data (use boost::lock_guard for locking).\n'
-             '\tboost::lock_guard<boost::mutex> enc_guard(enc_lock);\n'
-             '\tlabcomm_encode_lc_types_{lc_topic}(enc, &conv);\n')
-             .format(lc_topic=lc_topic))
+    tabs = '\t'*indent
+    f.write(tabs+'boost::lock_guard<boost::mutex> enc_guard(enc_lock);\n')
+    f.write(tabs+'labcomm_encode_{lc_prefix}_{lc_topic}(enc, {name});\n'
+            .format(lc_topic=lc_topic, lc_prefix=lc_prefix,name=name))
 
 
 def write_free(f, free_list):
