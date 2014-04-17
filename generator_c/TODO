@@ -3,10 +3,17 @@
 ## TOP PRIO
 	* Break out `if in_array` stuff into a function.
 	* Implement some sort of custom conversion code. C or Lua?
+		- Fix some caching for LabComm types. See TODO in generator.py for more
+		  info. Currently only fan-out from one LabComm type works.
+		- Fix trigger stuff.
 	* Change <py /> tag in config to something more generic.
     * Merge C++ generator with Python.
 	* Fix the topics_in/topics_out, which is which and switch them out for
 	  export and import FFS.
+	* Fix all examples, not a good idea to specify two paths to the generator.
+	  Perhaps use `rospack find` for this?
+	* Rename destinations_sample, destinations_topic, sources_sample and
+	  sources_topic to shorter stuff with like dst and src prefixes.
 
 ## LATER
     * Perhaps keep a pool of service threads per client to avoid spawning new
