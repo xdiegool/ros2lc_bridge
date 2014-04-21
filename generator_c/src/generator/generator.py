@@ -78,6 +78,7 @@ extern "C" {{
 #include <netinet/in.h>
 
 #include <labcomm.h>
+#include <labcomm_default_memory.h>
 
 #include "proto.h"
 #include "lc_types.h"
@@ -92,7 +93,7 @@ client_class_include = '''
 '''
 
 client_lc_callback_def = '''
-void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx);
+void {topic_name}_lc_callback({lc_ns}_{type_name} *sample, void *ctx);
 '''
 
 client_service_callback_def = '''
@@ -112,6 +113,12 @@ class client {
 public:
 '''
 
+client_conv_member = '''
+	{type_name} {name};'''
+
+client_conv_cache = '''
+	std::set<std::string> conv_{i}_cached;'''
+
 client_ros_subscriber_members = '''
 	ros::Subscriber {topic_name}Sub;
 	void {topic_name}_ros_callback(const {topic_type}::ConstPtr& msg);
@@ -126,10 +133,10 @@ client_ros_publisher_member = '''
 '''
 
 client_functions = '''
-    client(int client_sock, ros::NodeHandle &n,
-            struct sockaddr_in *stat_addr = NULL,
-            std::vector<std::string> *subscribe_to = NULL,
-            std::vector<std::string> *publish_on = NULL);
+	client(int client_sock, ros::NodeHandle &n,
+			struct sockaddr_in *stat_addr = NULL,
+			std::vector<std::string> *subscribe_to = NULL,
+			std::vector<std::string> *publish_on = NULL);
 	~client()
 	{
 		labcomm_decoder_free(dec);
@@ -145,34 +152,93 @@ client_functions = '''
 
 client_subscribe_reg = '''
 		{topic_name}Sub = n.subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
-		labcomm_encoder_register_lc_types_{topic_name}(enc);
+'''
+client_enc_reg = '''
+		labcomm_encoder_register_{lc_ns}_{name}(enc);
 '''
 
-setup_imports_fn_begin = '''
+setup_imports_pub_begin = '''
 	void setup_imports() {
 '''
 
-setup_imports_fn = '''
+setup_imports_pub = '''
 		{topic_name}Pub = n.advertise<{topic_type}>("{topic}", 10);
-		labcomm_decoder_register_lc_types_{topic_name}(dec, {topic_name}_lc_callback, this);
+'''
+
+setup_imports_dec_reg = '''
+		labcomm_decoder_register_{lc_ns}_{lc_name}(dec, {name}_lc_callback, this);
 '''
 
 subscriber_cb_fn_begin = '''
 void client::{topic_name}_ros_callback(const {topic_type}::ConstPtr& msg)
 {{
-	// Convert received ROS data.
-	lc_types_{topic_name} conv;
-	if (active_topics.find("{topic_name}") != active_topics.end()) {{
 '''
 
+custom_dst_var_def = '''
+	{typ} *{name} = NULL;
+	bool should_send_{name} = true;
+'''
+
+custom_examine_cache = '''
+	should_send_{name} = should_send_{name}
+			&& conv_{i}_cached.find("{ros_topic}") != conv_{i}_cached.end();
+'''
+
+custom_examine_cache_custom = '''
+	should_send_{name} = '''
+
+custom_set_add = '''
+    conv_{i}_cached.insert("{topic}");
+'''
+
+custom_replace = '''
+	{name}_val.reset();
+	{name}_val = msg;
+'''
+
+custom_replace_lc = '''
+	labcomm_copy_free_{lc_ns}_{name}(labcomm_default_memory, &c->{varname}_val);
+	labcomm_copy_{lc_ns}_{name}(labcomm_default_memory, &c->{varname}_val, sample);
+'''
+
+custom_call_begin = '''
+	{conv_fn}('''
+
+custom_should_send = '''
+	if (active_topics.find("{name}") != active_topics.end()
+		&& {name} && should_send_{name}) {{
+'''
+custom_should_send_topic = '''
+	if ({name} && should_send_{name}) {{
+'''
+
+
+custom_send_clear_set = '''
+	conv_{i}_cached.clear();
+'''
+
+custom_reset = '''
+	{name}_val.reset();
+'''
+
+subscriber_type_def = '''
+	// Convert received ROS data.
+	if (active_topics.find("{topic_name}") != active_topics.end()) {{
+		lc_types_{topic_name} conv;
+'''
+
+
 subscriber_cb_fn_end = '''
-	}
 }
 '''
 
 lc2ros_cb_fn_begin = '''
-void {topic_name}_lc_callback(lc_types_{topic_name} *sample, void *ctx)
+void {topic_name}_lc_callback({lc_ns}_{type_name} *sample, void *ctx)
 {{
+	client *c = (client *) ctx;
+'''
+
+lc2ros_cb_def = '''
 	{cpp_topic_type} msg;
 '''
 
@@ -503,6 +569,11 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
         # TODO: Ugly. Fix better way...
         with open('%s/CMakeLists.txt' % d, 'a') as bf:
             bf.write(cmake_add_exec_begin)
+
+            for c in conversions:
+                f = os.path.basename(c.lc_path).replace('.lc', '.c')
+                bf.write(cmake_custom_conv.format(f=f))
+
             bf.write(cmake_add_exec_end.format(lc_lib=lclibpath+'/liblabcomm.a',
                                                lc_inc=lclibpath))
 
@@ -528,6 +599,21 @@ def write_conf(f, bname, port):
     f.write(conf_content.format(pkg_name=bname, port=port,
                                 slash_substitute=SLASHSUB))
 
+
+def in_custom(topic, conversions):
+    '''When converting to or from a topic, check if there is a custom
+    conversion specified.
+    '''
+    for i,c in enumerate(conversions):
+        # When converting to a topic from LabComm sample(s).
+        if topic in c.destinations_topic:
+            return i, c
+        # When converting from a topic to LabComm sample(s).
+        if topic in c.sources_topic:
+            return i,c
+    return -1,None
+
+
 def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                topics_types, services, service_defs, conversions):
     '''Writes the definition of the client class as well as conversion code.
@@ -546,23 +632,66 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
     :param service_defs: a dict of a service=>type mappings
     :param conversions: a list of conversions specified by the user (obsolete in C++)
     '''
+
+    def write_once(f, fmt, key, items):
+        '''Helper function to write duplicated items only once. It can only
+        handle 1 param in the format string.
+
+        :param f: the file to write to.
+        :param fmt: the format string to use.
+        :param key: the key to replace in the format string.
+        :param items: the list of items to write.
+        '''
+        written = set()
+        tmp = {}
+        for i in items:
+            if i not in written:
+                written.add(i)
+                tmp[key] = i
+                f.write(fmt.format(**tmp))
+
+    def extract_lc_ns(lc, suf):
+        return basename(lc).replace('.lc', suf)
+
     # Write define stuff
     clientf.write(client_file_begin.format(pkg_name=pkg_name))
 
+    # Write one include per custom conversion type.
+    tmp = [extract_lc_ns(c.lc_path, '.h') for c in conversions]
+    write_once(clientf, 'extern "C" {{\n#include "{f}"\n}}\n', 'f', tmp)
+
+    # Write one include per msg type needed.
+    tmp = [topics_types[t] for t in topics_out + topics_in]
+    write_once(clientf, client_class_include, 'topic_type', tmp)
+
+    # Write one include per service type needed.
+    tmp = [get_srv_type(s) for s in services]
+    write_once(clientf, '#include "{name}.h"\n', 'name', tmp)
+
+    # Include custom conversion code.
+    tmp = [basename(c.py_path) for c in conversions]
+    write_once(convf, '#include "{f}"\n', 'f', tmp)
+
     # Write one function declaration (LC callback) per publisher
+    decl_written = set()
     for topic in topics_in:
-        topic_name = msg2id(topic)
-        clientf.write(client_lc_callback_def.format(topic_name=topic_name))
-
-    # Write one include per msg needed.
-    for topic in topics_out + topics_in:
-        topic_type = topics_types[topic]
-        clientf.write(client_class_include.format(topic_type=topic_type))
-
-    # Write includes for service types.
-    for service in services:
-        clientf.write('#include "{name}.h"\n'
-                      .format(name=get_srv_type(service)))
+        i, custom = in_custom(topic, conversions)
+        if not custom: # Auto conversion
+            topic_name = msg2id(topic)
+            clientf.write(client_lc_callback_def.format(topic_name=topic_name,
+                                                        lc_ns='lc_types',
+                                                        type_name=topic_name))
+        else: # Custom conversion
+            lc_ns = extract_lc_ns(custom.lc_path, '')
+            for t in custom.sources_sample:
+                # t[0] is sample type, t[1] is pseudo-topic
+                if t[1] in decl_written:
+                    continue
+                decl_written.add(t[1])
+                clientf.write(client_lc_callback_def
+                              .format(topic_name=msg2id(t[1]),
+                                      lc_ns=lc_ns,type_name=t[0]))
+    del decl_written
 
     # Write one function declaration (LC callback) per service.
     for service in services:
@@ -571,15 +700,40 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         clientf.write(client_service_callback_def.format(lc_name=lc_name,
                                                          lc_par_type=lc_par_type))
 
-    # Write class definition
+    # Write class definition and some members.
     clientf.write(client_class_begin)
+
+    for i,c in enumerate(conversions):
+        clientf.write('\n\t// Conv number {i}'.format(i=i))
+        if len(c.sources_topic + c.sources_sample) > 1:
+            clientf.write(client_conv_cache.format(i=i))
+            # for s in c.destinations_sample:
+            #     clientf.write(client_conv_cache.format(name=msg2id(s[1])))
+
+            # for t in c.destinations_topic:
+            #     clientf.write(client_conv_cache.format(name=msg2id(t)))
+
+        for t in c.sources_topic:
+            topic_type = topics_types[t].replace('/', '::') + '::ConstPtr'
+            clientf.write(client_conv_member.format(type_name=topic_type,
+                                                    name=msg2id(t) + '_val'))
+        # TODO: Do some magic with LabComm samples as well? Currently we can't
+        # since we only get a pointer in the LabComm callback and the data is
+        # freed once the callback returns. (And LabComm types can contain
+        # pointers to arrays so we basically have to add a deep-copy function
+        # to the LabComm compiler to get this to work.)
+        for s in c.sources_sample:
+            lc_ns = extract_lc_ns(c.lc_path, '')
+            ptopic = msg2id(s[1])
+            clientf.write(client_conv_member.format(type_name=lc_ns+'_'+s[0],
+                                                    name=ptopic+'_val'))
 
     # Write class members (ROS callback) for each subscriber.
     for topic in topics_out:
         topic_name = msg2id(topic)
         topic_type_cpp = topics_types[topic].replace('/', '::')
         clientf.write(client_ros_subscriber_members.format(topic_name=topic_name,
-                                                       topic_type=topic_type_cpp))
+                                                           topic_type=topic_type_cpp))
 
     for topic in topics_in:
         topic_name = msg2id(topic)
@@ -595,21 +749,58 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         clientf.write(service_call_respond.format(lc_name=lc_name,
                                                   lc_ret_type=lc_ret_type))
 
-    # Write setup in constructor.
+    # Write constructor and other function declarations in the client class.
     clientf.write(client_functions)
+
+    # Write ROS subscriptions and LabComm registrations (i.e. ROS->LC stuff).
+    reg_written = set()
     for topic in topics_out:
-        clientf.write(client_subscribe_reg.format(topic_name=msg2id(topic),
-                                                  ros_topic_name=topic))
+        if topic in reg_written:
+            continue
+        i, custom = in_custom(topic, conversions)
+        if custom:
+            lc_ns = extract_lc_ns(custom.lc_path, '')
+            for t in custom.sources_topic:
+                reg_written.add(t)
+                clientf.write(client_subscribe_reg.format(topic_name=msg2id(t),
+                                                          ros_topic_name=t))
+            for s in custom.destinations_sample:
+                clientf.write(client_enc_reg.format(lc_ns=lc_ns, name=s[0]))
+        else:
+            lc_topic = msg2id(topic)
+            clientf.write(client_subscribe_reg.format(topic_name=lc_topic,
+                                                      ros_topic_name=topic))
+            clientf.write(client_enc_reg.format(lc_ns='lc_types',
+                                                name=lc_topic))
+
     clientf.write('\t' + end_fn)
 
-    clientf.write(setup_imports_fn_begin)
+    clientf.write(setup_imports_pub_begin)
+    reg_written = set()
     for topic in topics_in:
-        topic_name = msg2id(topic)
-        # Get corresponding C++ type.
-        topic_type = topics_types[topic].replace('/', '::')
-        clientf.write(setup_imports_fn.format(topic_name=topic_name,
-                                              topic_type=topic_type,
-                                              topic=topic))
+        if topic in reg_written:
+            continue
+        i, custom = in_custom(topic, conversions)
+        if custom:
+            lc_ns = extract_lc_ns(custom.lc_path, '')
+            for t in custom.destinations_topic:
+                reg_written.add(t)
+                topic_type = topics_types[t].replace('/', '::')
+                clientf.write(setup_imports_pub.format(topic_name=msg2id(t),
+                                                       topic_type=topic_type,
+                                                       topic=t))
+            for s in custom.sources_sample:
+                clientf.write(setup_imports_dec_reg.format(lc_ns=lc_ns,
+                                                           lc_name=msg2id(s[0]),
+                                                           name=msg2id(s[1])))
+        else:
+            name = msg2id(topic)
+            # Get corresponding C++ type.
+            topic_type = topics_types[topic].replace('/', '::')
+            clientf.write(setup_imports_pub.format(topic_name=name,
+                                                   topic_type=topic_type,
+                                                   topic=topic))
+            clientf.write(setup_imports_dec_reg.format(name=name, lc_ns=lc_ns))
     clientf.write('\t' + end_fn)
 
     clientf.write('\n\tvoid setup_services() {\n')
@@ -640,6 +831,155 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         clientf.write(service_call_start_thread.format(lc_name=lc_name))
         # clientf.write('}\n')
 
+    for conv in conversions:
+        print 'lc path:       ', conv.lc_path
+        print 'py path:       ', conv.py_path
+        print 'conv func:     ', conv.py_func
+        print 'trig policy:   ', conv.trig_policy
+        print 'source samples:', conv.sources_sample
+        print 'source topics: ', conv.sources_topic
+        print 'dest samples:  ', conv.destinations_sample
+        print 'dest topics:   ', conv.destinations_topic
+        print ''
+
+    def write_custom_out(f, topicsample, is_topic, num, custom):
+        lc_ns = extract_lc_ns(custom.lc_path, '')
+        tmp = ''
+        if is_topic:
+            tmp = topicsample
+        else:
+            tmp = topicsample[1]
+        if len(custom.sources_sample + custom.sources_topic) > 1:
+            # Add the incomming topic/sample to the set of cached values.
+            f.write(custom_set_add.format(i=num, topic=tmp))
+
+        # Call custom conversion code.
+        def write_fn_call(custom, fn, src=True, dst=True):
+            f.write(custom_call_begin.format(conv_fn=fn))
+            var = '&{var}, '
+            if not is_topic:
+                var = '&c->{var}, '
+            if len(custom.destinations_topic + custom.destinations_sample) > 0:
+                if src:
+                    to = len(custom.sources_topic)
+                    if len(custom.sources_sample) == 0 and not dst:
+                        to = -1
+                    [f.write('{var}.get(), '.format(var=msg2id(t) + '_val'))
+                            for t in custom.sources_topic[:to]]
+                    if to == -1:
+                        var = msg2id(custom.sources_topic[-1])
+                        f.write('{var}.get());'.format(var=var + '_val'))
+                    [f.write(var.format(var=msg2id(s[1]) + '_val'))
+                            for s in custom.sources_sample]
+                    if (not to == -1 and
+                        len(custom.destinations_topic) == 0 and
+                        len(custom.destinations_sample) == 0):
+                        var = msg2id(custom.sources_sample[-1][1])
+                        f.write('&{var});'.format(var=var + '_val'))
+                if dst:
+                    to = len(custom.destinations_topic)
+                    if len(custom.destinations_sample) == 0:
+                        to = -1
+                    [f.write('&{var}, '.format(var=msg2id(t)))
+                            for t in custom.destinations_topic[:to]]
+                    if to == -1:
+                        var = msg2id(custom.destinations_topic[-1])
+                        f.write('&{var});'.format(var=var))
+                    [f.write('&{var}, '.format(var=msg2id(s[1])))
+                            for s in custom.destinations_sample[:-1]]
+                    if not to == -1:
+                        var = msg2id(custom.destinations_sample[-1][1])
+                        f.write('&{var});'.format(var=var))
+
+        def write_defs(custom, items, is_topic):
+            '''Helper to write dst definitions for both samples and topics.'''
+            for tmp in items:
+                typ = ''
+                name = ''
+                if is_topic:
+                    typ = topics_types[tmp].replace('/', '::')
+                    name = msg2id(tmp)
+                else:
+                    typ = lc_ns + '_' + tmp[0]
+                    name = msg2id(tmp[1])
+                f.write(custom_dst_var_def.format(typ=typ,name=name))
+                size = len(custom.sources_topic + custom.sources_sample)
+                if custom.trig_policy['type'] == 'full' and size > 1:
+                    for t in custom.sources_topic:
+                        f.write(custom_examine_cache.format(name=name,
+                                                            ros_topic=t,
+                                                            i=num))
+                    for s in custom.sources_sample:
+                        f.write(custom_examine_cache.format(name=name,
+                                                            ros_topic=s[1],
+                                                            i=num))
+                elif custom.trig_policy['type'] == 'custom':
+                    func = custom.trig_policy['func']
+                    f.write(custom_examine_cache_custom.format(name=name,
+                                                               func=func))
+                    write_fn_call(custom, func, dst=False)
+
+
+        # Write definitions for destinations.
+        write_defs(custom, custom.destinations_sample, False)
+        write_defs(custom, custom.destinations_topic, True)
+
+        # Reset the old value pointer and assign the new one.
+        if is_topic:
+            f.write('\n\t// Reset shared ptr with new value.')
+            f.write(custom_replace.format(name=msg2id(topicsample)))
+        else:
+            f.write('\n\t// Reset member with new value.')
+            name = msg2id(topicsample[0])
+            varname = msg2id(topicsample[1])
+            f.write(custom_replace_lc.format(lc_ns=lc_ns,name=name,
+                                             varname=varname))
+        write_fn_call(custom, custom.py_func)
+
+        # Write send code.
+        def write_send_ts(f, custom, items, is_topic):
+            for tmp in items:
+                typ = ''
+                name = ''
+                if is_topic:
+                    name = msg2id(tmp)
+                    # TODO: Write send code for topics.
+                    f.write(custom_should_send_topic.format(name=name))
+                    f.write('\t\tc->{name}Pub.publish(*{name});\n'
+                            .format(name=name))
+                else:
+                    typ = tmp[0]
+                    name = msg2id(tmp[1])
+                    f.write(custom_should_send.format(name=name))
+                    write_send(convf, typ, name, lc_prefix=lc_ns, indent=2)
+                # Clear variables if we are in full trigger mode.
+                f.write('\t}\n')
+        write_send_ts(convf, custom, custom.destinations_sample, False)
+        write_send_ts(convf, custom, custom.destinations_topic, True)
+        size = len(custom.sources_sample + custom.sources_topic)
+        if custom.trig_policy['type'] == 'full' and size > 1:
+            for t in custom.destinations_topic:
+                name = msg2id(t)
+                convf.write(custom_should_send_topic.format(name=name))
+                convf.write(custom_send_clear_set.format(i=num))
+                convf.write('\t}\n')
+            for s in custom.destinations_sample:
+                name = msg2id(s[1])
+                convf.write(custom_should_send.format(name=name))
+                convf.write(custom_send_clear_set.format(i=num))
+                convf.write('\t}\n')
+
+        # Write call to free function.
+        write_fn_call(custom, custom.py_func + '_free', src=False)
+        # f.write('\t{free_fn}('.format(free_fn=custom.py_func + '_free'))
+        # if len(custom.destinations_sample + custom.destinations_topic) > 0:
+        #     for s in custom.destinations_sample[:-1]: # All but last var
+        #         f.write('&{var}, '.format(var=msg2id(s[1])))
+        #     var = msg2id(custom.destinations_sample[-1][1])
+        #     f.write('&{var});'.format(var=var))
+        f.write('\n}\n')
+
+
     # Write subscriber callbacks that converts to LabComm samples.
     for topic in topics_out:
         topic_name = msg2id(topic)
@@ -648,22 +988,47 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         convf.write(subscriber_cb_fn_begin.format(topic_name=topic_name,
                                                   topic_type=topic_type_cpp))
         # Write conversion from ROS to LabComm.
-        free_list = convert_type(convf, get_def(topic_type), 'to_lc',
-                                 lc_ptr=False, ros_ptr=True, ros_varname='msg',
-                                 lc_varname='conv')
-        write_send(convf, topic)
-        write_free(convf, free_list)
-        convf.write(subscriber_cb_fn_end)
+        free_list = []
+        i, custom = in_custom(topic, conversions)
+        if custom:
+            write_custom_out(convf, topic, True, i, custom)
+        else:
+            convf.write(subscriber_type_def.format(topic_name=topic_name))
+            free_list = convert_type(convf, get_def(topic_type), 'to_lc',
+                                     lc_ptr=False, ros_ptr=True, ros_varname='msg',
+                                     lc_varname='conv')
+            write_send(convf, topic, name='&conv')
+            write_free(convf, free_list)
+            convf.write('\t}\n')
+            convf.write(subscriber_cb_fn_end)
 
     # Write LabComm callbacks that converts to ROS msgs.
+    custom_topics_done = set()
     for topic in topics_in:
-        definition = get_def(topics_types[topic])
-        topic_type_cpp = topics_types[topic].replace('/', '::')
-        convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(topic),
-                                              cpp_topic_type=topic_type_cpp))
-        convert_type(convf, definition, 'to_ros', lc_ptr=True, ros_ptr=False,
-                     ros_varname='msg', lc_varname='sample')
-        convf.write(lc2ros_cb_fn_end.format(topic_name=msg2id(topic)))
+        if topic in custom_topics_done:
+            return
+        i, custom = in_custom(topic, conversions)
+        if custom:
+            [custom_topics_done.add(t) for t in custom.destinations_topic]
+            convf.write('// ' + msg2id(topic) + '\n')
+            # f.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(s[1]),
+            #                                   type_name=s[0], lc_ns=lc_ns))
+            for s in custom.sources_sample:
+                convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(s[1]),
+                                                      type_name=s[0],
+                                                      lc_ns=lc_ns))
+                write_custom_out(convf, s, False, i, custom)
+        else:
+            definition = get_def(topics_types[topic])
+            cpp_type = topics_types[topic].replace('/', '::')
+            name = msg2id(topic)
+            convf.write(lc2ros_cb_fn_begin.format(lc_ns='topic_types',
+                                                  topic_name=name,
+                                                  typ_name=name))
+            convf.write(lc2ros_cb_def.format(cpp_topic_type=cpp_type))
+            convert_type(convf, definition, 'to_ros', lc_ptr=True, ros_ptr=False,
+                         ros_varname='msg', lc_varname='sample')
+            convf.write(lc2ros_cb_fn_end.format(topic_name=name))
 
     # Write LabComm callbacks that converts to ROS msgs.
     for service in services:
