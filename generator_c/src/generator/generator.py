@@ -800,7 +800,9 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
             clientf.write(setup_imports_pub.format(topic_name=name,
                                                    topic_type=topic_type,
                                                    topic=topic))
-            clientf.write(setup_imports_dec_reg.format(name=name, lc_ns=lc_ns))
+            clientf.write(setup_imports_dec_reg.format(name=name,
+                                                       lc_name=name,
+                                                       lc_ns='lc_types'))
     clientf.write('\t' + end_fn)
 
     clientf.write('\n\tvoid setup_services() {\n')
@@ -1022,9 +1024,9 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
             definition = get_def(topics_types[topic])
             cpp_type = topics_types[topic].replace('/', '::')
             name = msg2id(topic)
-            convf.write(lc2ros_cb_fn_begin.format(lc_ns='topic_types',
+            convf.write(lc2ros_cb_fn_begin.format(lc_ns='lc_types',
                                                   topic_name=name,
-                                                  typ_name=name))
+                                                  type_name=name))
             convf.write(lc2ros_cb_def.format(cpp_topic_type=cpp_type))
             convert_type(convf, definition, 'to_ros', lc_ptr=True, ros_ptr=False,
                          ros_varname='msg', lc_varname='sample')
