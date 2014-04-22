@@ -13,6 +13,7 @@ class TrajComp(object):
         self.x = None
         self.y = None
         self.z = None
+        self.i = 0
         self.xsub = rospy.Subscriber('posX', Float32, self.setxp)
         self.ysub = rospy.Subscriber('posY', Float32, self.setyp)
         self.zsub = rospy.Subscriber('posZ', Float32, self.setzp)
@@ -45,7 +46,8 @@ class TrajComp(object):
         self.xpub.publish(Float32(self.x))
         self.ypub.publish(Float32(self.y))
         self.zpub.publish(Float32(self.z))
-        self.tpub.publish(Float32(rospy.get_time()))
+        self.tpub.publish(self.i)
+        self.i += 1
         self.x = self.y = self.z = None
 
 
