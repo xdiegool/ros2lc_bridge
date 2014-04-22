@@ -185,7 +185,7 @@ custom_examine_cache_custom = '''
 	should_send_{name} = '''
 
 custom_set_add = '''
-    conv_{i}_cached.insert("{topic}");
+	conv_{i}_cached.insert("{topic}");
 '''
 
 custom_replace = '''
@@ -273,7 +273,7 @@ service_call_callback_end = '''
 		//TODO: Fail
 	}}
 
-    delete msg;
+	delete msg;
 }}
 '''
 
