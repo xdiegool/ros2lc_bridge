@@ -111,6 +111,7 @@ class client {
 	std::set<std::string> active_topics;
 
 public:
+	std::vector<boost::shared_ptr<boost::thread> > service_threads;
 '''
 
 client_conv_member = '''
@@ -137,11 +138,7 @@ client_functions = '''
 			struct sockaddr_in *stat_addr = NULL,
 			std::vector<std::string> *subscribe_to = NULL,
 			std::vector<std::string> *publish_on = NULL);
-	~client()
-	{
-		labcomm_decoder_free(dec);
-		labcomm_encoder_free(enc);
-	}
+	~client();
 
 	void run();
 	void handle_subscribe(proto_subscribe *subs);
@@ -254,7 +251,8 @@ static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v)
 '''
 
 service_call_start_thread = '''
-	boost::thread call_service(&client::call_srv_{lc_name}, c, msg);
+	boost::shared_ptr<boost::thread> t(new boost::thread(&client::call_srv_{lc_name}, c, msg));
+	c->service_threads.push_back(t);
 }}
 '''
 

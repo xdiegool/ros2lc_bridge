@@ -102,6 +102,18 @@ client::client(int client_sock, ros::NodeHandle &n,
 	}
 }
 
+client::~client()
+{
+	std::vector<boost::shared_ptr<boost::thread> >::iterator it;
+	for (it = service_threads.begin(); it != service_threads.end(); ++it)
+	{
+		(*it)->join();
+	}
+
+	labcomm_decoder_free(dec);
+	labcomm_encoder_free(enc);
+}
+
 void client::run()
 {
 	int res;
