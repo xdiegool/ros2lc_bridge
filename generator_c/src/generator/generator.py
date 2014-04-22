@@ -259,9 +259,6 @@ service_call_start_thread = '''
 service_call_callback_begin = '''
 void client::call_srv_{lc_name}({cpp_type} *msg)
 {{
-'''
-
-service_call_callback_call_srv = '''
 	ros::ServiceClient client;
 	client = n.serviceClient<{cpp_type}>("{srv_name}");
 	if (client.call(*msg)) {{
@@ -270,21 +267,14 @@ service_call_callback_call_srv = '''
 '''
 
 service_call_callback_end = '''
-		srv_response_{lc_name}(&res);
+		boost::lock_guard<boost::mutex> enc_guard(enc_lock);
+		labcomm_encode_lc_types_{lc_ret_type}(enc, &res);
 	}} else {{
 		//TODO: Fail
 	}}
 
     delete msg;
 }}
-'''
-
-service_call_respond = '''
-	void srv_response_{lc_name}(lc_types_{lc_ret_type} *res)
-	{{
-		boost::lock_guard<boost::mutex> enc_guard(enc_lock);
-		labcomm_encode_lc_types_{lc_ret_type}(enc, res);
-	}}
 '''
 
 end_fn = '}'
@@ -744,8 +734,6 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         cpp_type = get_srv_type(service).replace('/', '::')
         clientf.write(client_ros_service_members.format(srv_name=lc_name,
                                                         cpp_type=cpp_type))
-        clientf.write(service_call_respond.format(lc_name=lc_name,
-                                                  lc_ret_type=lc_ret_type))
 
     # Write constructor and other function declarations in the client class.
     clientf.write(client_functions)
@@ -1039,15 +1027,14 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
         lc_ret_type = lc_name + SRV_RET_SUFFIX
         cpp_type = ros_type.replace('/', '::')
         convf.write(service_call_callback_begin.format(lc_name=lc_name,
+                                                       srv_name=service,
                                                        lc_par_type=lc_par_type,
+                                                       lc_ret_type=lc_ret_type,
                                                        cpp_type=cpp_type))
-        convf.write(service_call_callback_call_srv.format(srv_name=service,
-                                                          cpp_type=cpp_type,
-                                                          lc_ret_type=lc_ret_type,
-                                                          lc_name=lc_name))
         convert_type(convf, definition[1], 'to_lc', lc_ptr=False,
                 ros_ptr=False, ros_varname='msg->response', lc_varname='res')
-        convf.write(service_call_callback_end.format(lc_name=lc_name))
+        convf.write(service_call_callback_end.format(lc_name=lc_name,
+                                                     lc_ret_type=lc_ret_type))
 
 
 
