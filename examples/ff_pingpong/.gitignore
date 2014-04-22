@@ -1,0 +1,4 @@
+pingpong
+src/lc_types.*
+src/proto.*
+src/*.o
