@@ -33,22 +33,6 @@ void client::set_decoder(struct labcomm_decoder *dec)
 	this->dec = dec;
 }
 
-void client::run()
-{
-	int res;
-	do {
-		res = labcomm_decoder_decode_one(dec);
-
-		if (res == -2) /* Handle LabComm's weird use of ENOENT. */
-			ROS_WARN("Decode failed: Unknown type received.");
-		else if (res < 0) /* Try to translate other errors. */
-			ROS_WARN("Decode failed: %s", strerror(-res));
-
-	} while (res > 0);
-
-	ROS_INFO("Connection closed. Client exiting.");
-}
-
 /* Called when the bridge receives a subscribe request. */
 void client::handle_subscribe(proto_subscribe *sub)
 {
