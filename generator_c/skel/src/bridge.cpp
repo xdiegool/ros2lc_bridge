@@ -26,7 +26,6 @@ static void chan_opened(struct firefly_channel *chan)
 	}
 	c = (client *) firefly_connection_get_context(conn);
 
-	c->setup_exports();
 	c->setup_services();
 }
 
@@ -58,6 +57,7 @@ static bool chan_recv(struct firefly_channel *chan)
 			(void (*)(void *, void *)) publish_callback, c);
 
 	c->setup_imports(&types);
+	c->setup_exports(&types);
 	firefly_channel_set_types(chan, types);
 
 	/* Always accept channel. */

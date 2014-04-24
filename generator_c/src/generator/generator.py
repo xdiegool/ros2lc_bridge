@@ -150,14 +150,15 @@ client_functions = '''
 	void handle_subscribe(proto_subscribe *subs);
 	void handle_publish(proto_publish *pub);
 
-	void setup_exports() {
+	void setup_exports(struct firefly_channel_types *types) {
 '''
 
 client_subscribe_reg = '''
 		{topic_name}Sub = n->subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
 '''
 client_enc_reg = '''
-		labcomm_encoder_register_{lc_ns}_{name}(enc);
+		firefly_channel_types_add_encoder_type(types,
+			labcomm_encoder_register_{lc_ns}_{name});
 '''
 
 setup_imports_pub_begin = '''

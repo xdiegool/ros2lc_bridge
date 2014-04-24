@@ -23,6 +23,7 @@ static struct firefly_channel *channel;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t sig = PTHREAD_COND_INITIALIZER;
 static volatile sig_atomic_t stop;
+static volatile sig_atomic_t go;
 
 
 static void handle_pong(lc_types_S__pong *pong, void *context)
@@ -33,9 +34,18 @@ static void handle_pong(lc_types_S__pong *pong, void *context)
 static void connection_opened(struct firefly_connection *c)
 {
     struct firefly_channel_types types = FIREFLY_CHANNEL_TYPES_INITIALIZER;
+
     firefly_channel_types_add_decoder_type(&types,
         (labcomm_decoder_register_function)labcomm_decoder_register_lc_types_S__pong,
         (void (*)(void *, void *))handle_pong, NULL);
+
+    firefly_channel_types_add_encoder_type(&types,
+        labcomm_encoder_register_proto_subscribe);
+    firefly_channel_types_add_encoder_type(&types,
+        labcomm_encoder_register_proto_publish);
+    firefly_channel_types_add_encoder_type(&types,
+        labcomm_encoder_register_lc_types_S__ping);
+
     pthread_mutex_lock(&lock);
     {
         connection = c;
@@ -55,6 +65,8 @@ static void chan_restr_info(struct firefly_channel *chan,
         break;
     case RESTRICTED:
         printf("restricted\n");
+        go = 1;
+        pthread_cond_broadcast(&sig);
         break;
     case RESTRICTION_DENIED:
         printf("restr req denied\n");
@@ -65,7 +77,8 @@ static void chan_restr_info(struct firefly_channel *chan,
 /* Incoming restr. req. */
 bool chan_restr(struct firefly_channel *chan)
 {
-    return true;
+        printf("SHOULD NOT HAPPEN\n");
+        return true;
 }
 
 static void chan_opened(struct firefly_channel *c)
@@ -177,7 +190,7 @@ int main(int argc, char **argv)
     pthread_mutex_lock(&lock);
     {
         puts("waiting for channel");
-        while (!channel && !stop)
+        while (!go && !stop)
             pthread_cond_wait(&sig, &lock);
         if (stop) goto shutdown_connection;
         puts("channel open");
@@ -185,12 +198,6 @@ int main(int argc, char **argv)
         enc = firefly_protocol_get_output_stream(channel);
     }
     pthread_mutex_unlock(&lock);
-
-    labcomm_encoder_register_proto_subscribe(enc);
-    labcomm_encoder_register_proto_publish(enc);
-    labcomm_encoder_register_lc_types_S__ping(enc);
-
-    sleep(1);
 
     /* Publish on ping. */
     proto_publish pub;
