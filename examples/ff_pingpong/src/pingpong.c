@@ -100,7 +100,7 @@ static void channel_error(struct firefly_channel *chan,
 {
     if (reason == FIREFLY_ERROR_CHAN_REFUSED)
         printf("Channel was rejected.");
-    err(1, "Channel error\n");
+    printf("%s\n", msg);
 }
 
 static struct firefly_connection_actions ping_actions = {
