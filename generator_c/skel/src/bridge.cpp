@@ -91,14 +91,7 @@ static void conn_opened(struct firefly_connection *conn)
 	firefly_connection_set_context(conn, c);
 }
 
-static struct firefly_connection_actions actions = {
-	.channel_opened			= chan_opened,
-	.channel_closed			= chan_closed,
-	.channel_recv			= chan_recv,
-	.channel_restrict		= NULL,
-	.channel_restrict_info	= NULL,
-	.connection_opened		= conn_opened
-};
+static struct firefly_connection_actions actions;
 
 int64_t conn_received(struct firefly_transport_llp *llp, const char *addr,
 		unsigned short port)
@@ -118,6 +111,13 @@ int64_t conn_received(struct firefly_transport_llp *llp, const char *addr,
 
 void LabCommBridge::serve()
 {
+	actions.channel_opened			= chan_opened;
+	actions.channel_closed			= chan_closed;
+	actions.channel_recv				= chan_recv;
+	actions.channel_restrict			= NULL;
+	actions.channel_restrict_info	= NULL;
+	actions.connection_opened		= conn_opened;
+
 	ROS_INFO("Bridge listening...");
 	ros::spin();
 }
