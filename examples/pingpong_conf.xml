@@ -6,8 +6,4 @@
   <topics_out>
 	<topic name="/pong" />
   </topics_out>
-
-  <services>
-    <service name="/add_two_ints" />
-  </services>
 </bridge>
