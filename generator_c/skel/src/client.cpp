@@ -1,117 +1,36 @@
 #include "client.h"
 
-extern "C" {
-
-/* LabComm includes */
-#include <labcomm_default_error_handler.h>
-#include <labcomm_fd_reader.h>
-#include <labcomm_fd_writer.h>
-#include <labcomm_default_memory.h>
-#include <labcomm_default_scheduler.h>
-
-/* C stuff */
-#include <stdio.h> /* For perror(). */
-}
-
-/* Networking */
-#include <sys/socket.h>
-#include <sys/types.h>
-
 /* Other */
 #include <stdexcept>
 #include <vector>
 #include <string>
 
-static void subscribe_callback(proto_subscribe *v, void *ctx)
-{
-	((client *) ctx)->handle_subscribe(v);
-}
-
-static void publish_callback(proto_publish *v, void *ctx)
-{
-	((client *) ctx)->handle_publish(v);
-}
-
-client::client(int client_sock, ros::NodeHandle &n,
+client::client(struct firefly_connection *conn,
+		ros::NodeHandle *n,
 		struct sockaddr_in *stat_addr,
 		std::vector<std::string> *subscribe_to,
 		std::vector<std::string> *publish_on)
-	: sock(client_sock),
-	  n(n),
+	: n(n),
 	  enc_lock(),
-	  active_topics()
-{
-	struct labcomm_reader *r;
-	struct labcomm_writer *w;
-
-	/* Check if we got a static address to connect to. */
-	if (stat_addr) {
-		int ret;
-		socklen_t len;
-
-		sock = socket(AF_INET, SOCK_STREAM, 0);
-		if (sock < 0) {
-			perror(NULL);
-			throw std::runtime_error("stat_conn: socket() failed.");
-		}
-
-		len = (socklen_t) sizeof(struct sockaddr_in);
-		ret = connect(sock, (struct sockaddr *) stat_addr, len);
-		if (ret) {
-			close(sock);
-			perror(NULL);
-			throw std::runtime_error("stat_conn: connect() failed.");
-		}
-	}
-
-	/* TODO: Other reader/writer? */
-	r = labcomm_fd_reader_new(labcomm_default_memory, sock, 1);
-	w = labcomm_fd_writer_new(labcomm_default_memory, sock, 1);
-	if (!w || !r) {
-		free(w);
-		free(r);
-		close(sock);
-		throw std::runtime_error("Failed to create reader/writer.");
-	}
-
-	enc = labcomm_encoder_new(w, labcomm_default_error_handler,
-							  labcomm_default_memory,
-							  labcomm_default_scheduler);
-	dec = labcomm_decoder_new(r, labcomm_default_error_handler,
-							  labcomm_default_memory,
-							  labcomm_default_scheduler);
-	if (!enc || !dec) {
-		labcomm_encoder_free(enc);
-		labcomm_decoder_free(dec);
-		close(sock);
-		throw std::runtime_error("Failed to create encoder/decoder.");
-	}
-
-	labcomm_decoder_register_proto_subscribe(dec, subscribe_callback, this);
-	labcomm_decoder_register_proto_publish(dec, publish_callback, this);
-
-	setup_imports();
-	setup_exports();
-	setup_services();
-
-	if (stat_addr) {
-		for(std::vector<std::string>::iterator it = subscribe_to->begin();
-				it != subscribe_to->end(); ++it) {
-			active_topics.insert(*it);
-		}
-	}
-}
+	  active_topics() { }
 
 client::~client()
 {
+	/* Make sure we join on all service threads created. */
 	std::vector<boost::shared_ptr<boost::thread> >::iterator it;
-	for (it = service_threads.begin(); it != service_threads.end(); ++it)
-	{
+	for (it = service_threads.begin(); it != service_threads.end(); ++it) {
 		(*it)->join();
 	}
+}
 
-	labcomm_decoder_free(dec);
-	labcomm_encoder_free(enc);
+void client::set_encoder(struct labcomm_encoder *enc)
+{
+	this->enc = enc;
+}
+
+void client::set_decoder(struct labcomm_decoder *dec)
+{
+	this->dec = dec;
 }
 
 void client::run()

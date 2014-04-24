@@ -1,49 +1,124 @@
 #include "bridge.h"
 #include "client.h"
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <stdio.h>
+#include <labcomm.h>
 
-static void start_client(int csock, struct sockaddr_in *client_addr,
-		ros::NodeHandle &n)
+static void subscribe_callback(proto_subscribe *v, void *ctx)
 {
-	char	addr[INET_ADDRSTRLEN];
-	client	*c;
-
-	/* Convert and print the client's address. */
-	inet_ntop(AF_INET, &client_addr->sin_addr, addr, INET_ADDRSTRLEN);
-	ROS_INFO("Got client: %s", addr);
-
-	/* Create a new client and start in a new thread. */
-	c = new client(csock, n);
-	c->run();
-
-	delete c;
+	((client *) ctx)->handle_subscribe(v);
 }
 
-static void accept_thread(int sock, ros::NodeHandle &n)
+static void publish_callback(proto_publish *v, void *ctx)
 {
-	socklen_t addrlen;
+	((client *) ctx)->handle_publish(v);
+}
 
-	addrlen = sizeof(struct sockaddr_in);
+static void chan_opened(struct firefly_channel *chan)
+{
+	ROS_INFO("Channel opened");
+	struct firefly_connection *conn;
+	client *c;
 
-	ROS_INFO("Bridge waiting...");
-	while (ros::ok()) {
-		struct sockaddr_in	client_addr;
-		int					csock;
-
-		csock = accept(sock, (struct sockaddr *) &client_addr, &addrlen);
-
-		/* Start thread to handle the client. */
-		boost::thread client_thread(start_client, csock, &client_addr, n);
+	/* Get connection from channel to get to context (i.e. client). */
+	conn = firefly_channel_get_connection(chan);
+	if (!conn) {
+		ROS_ERROR("Got channel without connection.");
 	}
+	c = (client *) firefly_connection_get_context(conn);
+
+	c->setup_exports();
+	c->setup_services();
+}
+
+static bool chan_recv(struct firefly_channel *chan)
+{
+	ROS_INFO("Channel recieved");
+	struct firefly_connection *conn;
+	struct labcomm_decoder *dec;
+	struct labcomm_encoder *enc;
+	client *c;
+	struct firefly_channel_types types = FIREFLY_CHANNEL_TYPES_INITIALIZER;
+
+	/* Get encoder/decoder from channel to set on client. */
+	dec = firefly_protocol_get_input_stream(chan);
+	enc = firefly_protocol_get_output_stream(chan);
+
+	conn = firefly_channel_get_connection(chan);
+	c = (client *) firefly_connection_get_context(conn);
+
+	c->set_encoder(enc);
+	c->set_decoder(dec);
+
+	/* Use firefly's safe way to register types. */
+	firefly_channel_types_add_decoder_type(&types,
+			(labcomm_decoder_register_function)labcomm_decoder_register_proto_subscribe,
+			(void (*)(void *, void *)) subscribe_callback, c);
+	firefly_channel_types_add_decoder_type(&types,
+			(labcomm_decoder_register_function)labcomm_decoder_register_proto_publish,
+			(void (*)(void *, void *)) publish_callback, c);
+
+	c->setup_imports(&types);
+	firefly_channel_set_types(chan, types);
+
+	/* Always accept channel. */
+	return true;
+}
+
+static void chan_closed(struct firefly_channel *chan)
+{
+	client *c;
+	struct firefly_connection *conn;
+
+	/* Close connection when close channel and free client.*/
+	conn = firefly_channel_get_connection(chan);
+	c = (client *) firefly_connection_get_context(conn);
+
+	firefly_connection_close(conn);
+
+	delete c;
+
+	ROS_INFO("Channel closed");
+}
+
+static void conn_opened(struct firefly_connection *conn)
+{
+	client *c;
+
+	ROS_INFO("Got connection");
+
+	/* Create new client and attach it to the connection. */
+	c = new client(conn, n);
+	firefly_connection_set_context(conn, c);
+}
+
+static struct firefly_connection_actions actions = {
+	.channel_opened			= chan_opened,
+	.channel_closed			= chan_closed,
+	.channel_recv			= chan_recv,
+	.channel_restrict		= NULL,
+	.channel_restrict_info	= NULL,
+	.connection_opened		= conn_opened
+};
+
+int64_t conn_received(struct firefly_transport_llp *llp, const char *addr,
+		unsigned short port)
+{
+	int64_t res;
+	struct firefly_transport_connection *ftc;
+
+	ROS_INFO("Got client: %s", addr);
+
+	ftc = firefly_transport_connection_udp_posix_new(llp, addr, port,
+								FIREFLY_TRANSPORT_UDP_POSIX_DEFAULT_TIMEOUT);
+
+	res = firefly_connection_open(&actions, NULL, eq, ftc);
+
+	return res;
 }
 
 void LabCommBridge::serve()
 {
-	boost::thread accepter(accept_thread, sock, n);
+	ROS_INFO("Bridge listening...");
 	ros::spin();
 }
 

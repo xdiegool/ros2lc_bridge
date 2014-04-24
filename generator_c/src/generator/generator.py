@@ -45,8 +45,8 @@ cmake_add_exec_end = '''
     src/client.cpp
     src/bridge.cpp
 )
-target_link_libraries(main {lc_lib})
-include_directories({lc_inc})
+target_link_libraries(main {lc_lib} {trans_lib} {ff_lib})
+include_directories({lc_inc} {ff_inc})
 '''
 
 conf_content = '''
@@ -75,10 +75,14 @@ client_file_begin = '''
 
 extern "C" {{
 
-#include <netinet/in.h>
-
 #include <labcomm.h>
 #include <labcomm_default_memory.h>
+
+/* Firefly includes */
+#include <protocol/firefly_protocol.h>
+#include <transport/firefly_transport_udp_posix.h>
+#include <utils/firefly_event_queue.h>
+#include <utils/firefly_event_queue_posix.h>
 
 #include "proto.h"
 #include "lc_types.h"
@@ -103,8 +107,7 @@ static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v);
 
 client_class_begin = '''
 class client {
-	int sock;
-	ros::NodeHandle &n;
+    ros::NodeHandle *n;
 	struct labcomm_decoder *dec;
 	struct labcomm_encoder *enc;
 	boost::mutex enc_lock;
@@ -134,12 +137,15 @@ client_ros_publisher_member = '''
 '''
 
 client_functions = '''
-	client(int client_sock, ros::NodeHandle &n,
+	client(struct firefly_connection *conn,
+			ros::NodeHandle *n,
 			struct sockaddr_in *stat_addr = NULL,
 			std::vector<std::string> *subscribe_to = NULL,
 			std::vector<std::string> *publish_on = NULL);
 	~client();
 
+	void set_encoder(struct labcomm_encoder *enc);
+	void set_decoder(struct labcomm_decoder *dec);
 	void run();
 	void handle_subscribe(proto_subscribe *subs);
 	void handle_publish(proto_publish *pub);
@@ -148,22 +154,24 @@ client_functions = '''
 '''
 
 client_subscribe_reg = '''
-		{topic_name}Sub = n.subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
+		{topic_name}Sub = n->subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
 '''
 client_enc_reg = '''
 		labcomm_encoder_register_{lc_ns}_{name}(enc);
 '''
 
 setup_imports_pub_begin = '''
-	void setup_imports() {
+	void setup_imports(struct firefly_channel_types *types) {
 '''
 
 setup_imports_pub = '''
-		{topic_name}Pub = n.advertise<{topic_type}>("{topic}", 10);
+		{topic_name}Pub = n->advertise<{topic_type}>("{topic}", 1);
 '''
 
 setup_imports_dec_reg = '''
-		labcomm_decoder_register_{lc_ns}_{lc_name}(dec, {name}_lc_callback, this);
+		firefly_channel_types_add_decoder_type(types,
+				(labcomm_decoder_register_function)labcomm_decoder_register_{lc_ns}_{lc_name},
+				(void (*)(void *, void *)) {name}_lc_callback, this);
 '''
 
 subscriber_cb_fn_begin = '''
@@ -240,7 +248,7 @@ lc2ros_cb_def = '''
 '''
 
 lc2ros_cb_fn_end = '''
-	((client *) ctx)->{topic_name}Pub.publish(msg);
+	c->{topic_name}Pub.publish(msg);
 }}'''
 
 service_call_func = '''
@@ -260,7 +268,7 @@ service_call_callback_begin = '''
 void client::call_srv_{lc_name}({cpp_type} *msg)
 {{
 	ros::ServiceClient client;
-	client = n.serviceClient<{cpp_type}>("{srv_name}");
+	client = n->serviceClient<{cpp_type}>("{srv_name}");
 	if (client.call(*msg)) {{
 		// TODO: convert back to LC.
 		lc_types_{lc_ret_type} res;
@@ -529,24 +537,25 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
         # Move generated client definition to package.
         os.rename(static_conns_file, os.path.join(srcdir, GENBRIDGE__FILENAME))
 
-        # Make sure LabComm library env exists.
-        lclibpath = os.environ.get('LABCOMM')
-        if not lclibpath:
+        # Make sure LabComm and Firefly env exists.
+        lcpath = os.environ.get('LABCOMM')
+        if not lcpath:
             raise GeneratorException('Env. $LABCOMM not set, won\'t be able to'
-                                     ' comile node. (Should be set to LabComm'
-                                     ' C library path.)')
+                                     ' compile node. (Should be set to LabComm'
+                                     ' repository path.)')
+        ffpath = os.environ.get('FIREFLY')
+        if not ffpath:
+            raise GeneratorException('Env. $FIREFLY not set, won\'t be able to'
+                                     ' compile node. (Should be set to Firefly'
+                                     ' repository path.)')
 
-        lcc = os.environ.get('LABCOMMC')
-        if not lcc:
-            raise GeneratorException("Env. $LABCOMMC not set, can't compile types."
-                                     " (Should be path to labcomm compiler jar-file.)")
         for lc in mlc:
             shutil.copy(lc, lcdir)
         # Compile LabComm files.
         for f in os.listdir(lcdir):
             name = os.path.splitext(f)[0]
             sh('java -jar {jar} -C --c={dest}.c --h={dest}.h {src}.lc'.format(
-                    jar=lcc,
+                    jar=lcpath + '/compiler/labComm.jar',
                     dest=os.path.join(srcdir, name),
                     src=os.path.join(lcdir, name)))
 
@@ -562,8 +571,11 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
                 f = os.path.basename(c.lc_path).replace('.lc', '.c')
                 bf.write(cmake_custom_conv.format(f=f))
 
-            bf.write(cmake_add_exec_end.format(lc_lib=lclibpath+'/liblabcomm.a',
-                                               lc_inc=lclibpath))
+            bf.write(cmake_add_exec_end.format(lc_lib=lcpath+'/lib/c/liblabcomm.a',
+                                               lc_inc=lcpath+'/lib/c',
+                                               ff_lib=ffpath+'/build/libfirefly-werr.a',
+                                               trans_lib=ffpath+'/build/libtransport-udp-posix.a',
+                                               ff_inc=ffpath+'/include'))
 
         # Fix permissions
         # os.chmod(('%s/' + CONFIG_FILENAME) % srcdir,

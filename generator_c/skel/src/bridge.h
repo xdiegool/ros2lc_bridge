@@ -3,65 +3,56 @@
 
 #include "ros/ros.h"
 
-/* Boost */
-#include <boost/thread.hpp>
-/* Network */
-#include <sys/socket.h>
-#include <netinet/in.h>
 /* Other */
 #include <stdexcept>
 #include <cstdlib>
 
 extern "C" {
 
-/* LabComm includes */
-#include <labcomm.h>
-#include <labcomm_default_memory.h>
-#include <labcomm_default_error_handler.h>
-#include <labcomm_default_scheduler.h>
-#include <labcomm_fd_reader.h>
-#include <labcomm_fd_writer.h>
+#include <stdint.h>
+
+/* Firefly includes */
+#include <protocol/firefly_protocol.h>
+#include <transport/firefly_transport_udp_posix.h>
+#include <utils/firefly_event_queue.h>
+#include <utils/firefly_event_queue_posix.h>
 
 /* Generated LabComm types. */
 #include "proto.h"
 #include "lc_types.h"
 
+int64_t conn_received(struct firefly_transport_llp *llp,
+		const char *ip_addr, unsigned short port);
 }
 
 /* Generated config header. */
 #include "conf.h"
 
+static struct firefly_event_queue *eq;
+
+static ros::NodeHandle *n;
+
 class LabCommBridge {
-protected:
-	ros::NodeHandle n;
-	int sock;
+	struct firefly_transport_llp *llp;
 
 public:
-	LabCommBridge() : n()
+	LabCommBridge()
 	{
-		int ret = 0;
-		struct sockaddr_in addr;
+		int res;
 
-		/* Open socket */
-		sock = socket(PF_INET, SOCK_STREAM, 0);
-		if (sock < 0)
-			throw std::runtime_error("socket() failed.");
+		n = new ros::NodeHandle();
 
-		/* Set address, port and bind. */
-		addr.sin_family      = AF_INET;
-		addr.sin_port        = htons(PORT);
-		addr.sin_addr.s_addr = htonl(INADDR_ANY);
-		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
-		if (ret) {
-			close(sock);
-			throw std::runtime_error("bind() failed.");
+		eq = firefly_event_queue_posix_new(20);
+		res = firefly_event_queue_posix_run(eq, NULL);
+		if (res) {
+			fprintf(stderr, "ERROR: starting event thread.");
 		}
 
-		/* Try to listen. */
-		ret = listen(sock, 5);
-		if (ret) {
-			close(sock);
-			throw std::runtime_error("listen() failed.");
+		llp = firefly_transport_llp_udp_posix_new(PORT, conn_received, eq);
+
+		res = firefly_transport_udp_posix_run(llp);
+		if (res) {
+			fprintf(stderr, "ERROR: starting reader/resend thread.\n");
 		}
 
 		setup_static();
@@ -69,7 +60,10 @@ public:
 
 	~LabCommBridge()
 	{
-		close(sock);
+		delete n;
+		firefly_transport_udp_posix_stop(llp);
+		firefly_transport_llp_udp_posix_free(llp);
+		firefly_event_queue_posix_free(&eq);
 	}
 
 	void serve();

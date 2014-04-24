@@ -1,11 +1,9 @@
 # TODO for C++
 
 ## TOP PRIO
+	* Write tutorial on installing Firefly and LabComm.
 	* Break out `if in_array` stuff into a function.
-	* Implement some sort of custom conversion code. C or Lua?
-		- Fix some caching for LabComm types. See TODO in generator.py for more
-		  info. Currently only fan-out from one LabComm type works.
-		- Fix trigger stuff.
+	* Periodic trigger doesn't work yet.
 	* Change <py /> tag in config to something more generic.
     * Merge C++ generator with Python.
 	* Fix the topics_in/topics_out, which is which and switch them out for

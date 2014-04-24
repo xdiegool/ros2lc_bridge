@@ -29,10 +29,10 @@ clean:
 	$(RM) $(ALL)
 
 src/lc_types.h src/lc_types.c: $(BR)/lc/lc_types.lc
-	cd src/ && java -jar $(LABCOMMC) -C $^
+	cd src/ && java -jar $(LABCOMM)/compiler/labComm.jar -C $^
 
 src/proto.h src/proto.c: $(BR)/lc/proto.lc
-	cd src/ && java -jar $(LABCOMMC) -C $^
+	cd src/ && java -jar $(LABCOMM)/compiler/labComm.jar -C $^
 
 pingpong: src/proto.o src/lc_types.o src/pingpong.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LC_BIN)/liblabcomm.a $(LDLIBS)

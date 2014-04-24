@@ -25,12 +25,21 @@ static pthread_cond_t sig = PTHREAD_COND_INITIALIZER;
 static volatile sig_atomic_t stop;
 
 
+static void handle_pong(lc_types_S__pong *pong, void *context)
+{
+    printf("Got pong %s\n", pong->s);
+}
+
 static void connection_opened(struct firefly_connection *c)
 {
+    struct firefly_channel_types types = FIREFLY_CHANNEL_TYPES_INITIALIZER;
+    firefly_channel_types_add_decoder_type(&types,
+        (labcomm_decoder_register_function)labcomm_decoder_register_lc_types_S__pong,
+        (void (*)(void *, void *))handle_pong, NULL);
     pthread_mutex_lock(&lock);
     {
         connection = c;
-        firefly_channel_open(connection);
+        firefly_channel_open_auto_restrict(connection, types);
         pthread_cond_broadcast(&sig);
     }
     pthread_mutex_unlock(&lock);
@@ -61,7 +70,18 @@ bool chan_restr(struct firefly_channel *chan)
 
 static void chan_opened(struct firefly_channel *c)
 {
-    channel = c;
+    struct labcomm_encoder *enc;
+    struct labcomm_decoder *dec;
+
+    dec = firefly_protocol_get_input_stream(c);
+    enc = firefly_protocol_get_output_stream(c);
+
+    pthread_mutex_lock(&lock);
+    {
+        channel = c;
+        pthread_cond_broadcast(&sig);
+    }
+    pthread_mutex_unlock(&lock);
 }
 
 static void chan_closed(struct firefly_channel *chan)
@@ -83,28 +103,23 @@ static void channel_error(struct firefly_channel *chan,
     err(1, "Channel error\n");
 }
 
-static void handle_pong(lc_types_S__pong *pong, void *context)
-{
-    printf("Got pong %s\n", pong->s);
-}
-
 static struct firefly_connection_actions ping_actions = {
-	.channel_opened        = chan_opened,
-	.channel_closed        = chan_closed,
-	.channel_recv          = NULL,	/* No channels are received. */
-	.channel_error         = channel_error,
-	.channel_restrict      = chan_restr,
-	.channel_restrict_info = chan_restr_info,
-	.connection_opened     = connection_opened
+    .channel_opened        = chan_opened,
+    .channel_closed        = chan_closed,
+    .channel_recv          = NULL,    /* No channels are received. */
+    .channel_error         = channel_error,
+    .channel_restrict      = chan_restr,
+    .channel_restrict_info = chan_restr_info,
+    .connection_opened     = connection_opened
 };
 
 static void signal_handler(int signal)
 {
-	if (signal == SIGINT) {
-		printf("Got signal, shutting down...\n");
+    if (signal == SIGINT) {
+        printf("Got signal, shutting down...\n");
         stop = 1;
         pthread_cond_broadcast(&sig);
-	}
+    }
 }
 
 static short parse_port(char *s)
@@ -172,13 +187,22 @@ int main(int argc, char **argv)
     pthread_mutex_unlock(&lock);
 
     labcomm_encoder_register_proto_subscribe(enc);
+    labcomm_encoder_register_proto_publish(enc);
     labcomm_encoder_register_lc_types_S__ping(enc);
-    labcomm_decoder_register_lc_types_S__pong(dec, handle_pong, NULL);
 
+    sleep(1);
+
+    /* Publish on ping. */
+    proto_publish pub;
+    pub.topic = "S__ping";
+    labcomm_encode_proto_publish(enc, &pub);
+
+    /* Subscribe to pong. */
     proto_subscribe sub;
-    sub.topic = "S__ping";
-    unsigned int cnt = 0;
+    sub.topic = "S__pong";
     labcomm_encode_proto_subscribe(enc, &sub);
+
+    unsigned int cnt = 0;
     while (!stop) {
         lc_types_S__ping ping;
         char buf[32];
@@ -190,9 +214,9 @@ int main(int argc, char **argv)
         sleep(1);
     }
 
-	firefly_channel_close(channel);
- shutdown_connection:
-	firefly_transport_udp_posix_stop(llp);
-	firefly_transport_llp_udp_posix_free(llp);
-	firefly_event_queue_posix_free(&event_queue);
+    firefly_channel_close(channel);
+shutdown_connection:
+    firefly_transport_udp_posix_stop(llp);
+    firefly_transport_llp_udp_posix_free(llp);
+    firefly_event_queue_posix_free(&event_queue);
 }
