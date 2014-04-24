@@ -80,6 +80,27 @@ static void chan_closed(struct firefly_channel *chan)
 	ROS_INFO("Channel closed");
 }
 
+static bool chan_restrict(struct firefly_channel *chan)
+{
+	return true;
+}
+
+static void chan_restrict_info(struct firefly_channel *chan,
+		enum restriction_transition restr)
+{
+	switch (restr) {
+		case UNRESTRICTED:
+			ROS_INFO("Channel un-restricted.");
+			break;
+		case RESTRICTED:
+			ROS_INFO("Channel restricted.");
+			break;
+		case RESTRICTION_DENIED:
+			ROS_INFO("Channel restriction denied.");
+			break;
+	}
+}
+
 static void conn_opened(struct firefly_connection *conn)
 {
 	client *c;
@@ -113,9 +134,9 @@ void LabCommBridge::serve()
 {
 	actions.channel_opened			= chan_opened;
 	actions.channel_closed			= chan_closed;
-	actions.channel_recv				= chan_recv;
-	actions.channel_restrict			= NULL;
-	actions.channel_restrict_info	= NULL;
+	actions.channel_recv			= chan_recv;
+	actions.channel_restrict		= chan_restrict;
+	actions.channel_restrict_info	= chan_restrict_info;
 	actions.connection_opened		= conn_opened;
 
 	ROS_INFO("Bridge listening...");
