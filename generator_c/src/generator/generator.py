@@ -1145,15 +1145,20 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
                 defined = '{lc}.{name}.a' #TODO: This should be extracted from stmt[0]
             free_list.append(defined.format(ros=rosvar,lc=lcvar,lcname=name,name=name))
 
+    def recursive_array(f, direction, typ, rosvar, lcvar, name, in_array_local,
+                        ros_ptr, lc_ptr):
+        res = get_code(direction, typ, in_array_local, ros_ptr, lc_ptr)
+        parts = name.split('.')
+        lcname = parts[0] + '.a[i].' + parts[1]
+        rosname = parts[0] + '[i].' + parts[1]
+        append_free(res, rosvar, lcvar, lcname)
+        f.write(res[0].format(ros=rosvar,lc=lcvar,lcname=lcname,rosname=rosname))
+
     def write_string(f, conv_map, rosvar, lcvar, name, in_array_local = False):
         '''Helper function for writing conversion code for strings.'''
         if in_array: # Not a nice hack... Should probably do better
-            res = get_code(direction, 'sstring', in_array_local, ros_ptr, lc_ptr)
-            parts = name.split('.')
-            lcname = parts[0] + '.a[i].' + parts[1]
-            rosname = parts[0] + '[i].' + parts[1]
-            append_free(res, rosvar, lcvar, lcname)
-            f.write(res[0].format(ros=rosvar,lc=lcvar,lcname=lcname,rosname=rosname))
+            recursive_array(f, direction, 'sstring', rosvar, lcvar, name,
+                            in_array_local, ros_ptr, lc_ptr)
         else:
             res = get_code(direction, 'string', in_array_local, ros_ptr, lc_ptr)
             append_free(res, rosvar, lcvar, name)
@@ -1164,12 +1169,8 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         (which are primitive types in ROS msgs).
         '''
         if in_array: # Not a nice hack... Should probably do better
-            res = get_code(direction, 'ttime', in_array_local, ros_ptr, lc_ptr)
-            parts = name.split('.')
-            lcname = parts[0] + '.a[i].' + parts[1]
-            rosname = parts[0] + '[i].' + parts[1]
-            append_free(res, rosvar, lcvar, lcname)
-            f.write(res[0].format(ros=rosvar,lc=lcvar,lcname=lcname,rosname=rosname))
+            recursive_array(f, direction, 'ttime', rosvar, lcvar, name,
+                            in_array_local, ros_ptr, lc_ptr)
         else:
             res = get_code(direction, 'time', in_array_local, ros_ptr, lc_ptr)
             append_free(res, rosvar, lcvar, name)
@@ -1228,13 +1229,8 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
                 f.write(res[0].format(ros=ros_varname,lc=lc_varname,name=name))
             else: # primitive types, just copy
                 if in_array: # Not a nice hack... Should probably do better
-                    res = get_code(direction, 'ddefault', False, ros_ptr, lc_ptr)
-                    parts = name.split('.')
-                    lcname = parts[0] + '.a[i].' + parts[1]
-                    rosname = parts[0] + '[i].' + parts[1]
-                    append_free(res, ros_varname, lc_varname, lcname)
-                    f.write(res[0].format(ros=ros_varname,lc=lc_varname,
-                                          lcname=lcname,rosname=rosname))
+                    recursive_array(f, direction, 'ddefault', ros_varname,
+                            lc_varname, name, False, ros_ptr, lc_ptr)
                 else:
                     res = get_code(direction, 'default', False, ros_ptr, lc_ptr)
                     append_free(res, ros_varname, lc_varname, name)
