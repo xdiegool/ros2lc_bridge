@@ -8,11 +8,11 @@ lc:
 	mkdir -p $(LC_GEN_DIR)
 	touch  $(LC_GEN_DIR)/__init__.py
 	java -jar $(LABCOMMC) --python=$(LC_GEN_DIR)/pos_vel.py lc/pos_vel.lc
-	java -jar $(LABCOMMC) --python=$(LC_GEN_DIR)/proto.py ../../../generator/skel/lc/proto.lc
+	java -jar $(LABCOMMC) --python=$(LC_GEN_DIR)/proto.py ../../../generator_c/skel/lc/proto.lc
 
 
 clean:
 	rm -fr $(LC_GEN_DIR)
 
 genbridge:
-	rosrun generator generator.py -c conf.xml --force
+	rosrun generator_c generator.py -c conf.xml --force

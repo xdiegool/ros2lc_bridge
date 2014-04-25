@@ -8,6 +8,6 @@
   </topics_in>
 
   <topics_out>
-    <topic name="/pong" />
+	<topic name="/pong" />
   </topics_out>
 </bridge>

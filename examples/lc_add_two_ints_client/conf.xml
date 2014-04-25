@@ -1,0 +1,6 @@
+<bridge name="service_bridge" port="7357">
+  <services>
+    <service name="/add_two_ints" />
+	<service name="/add_two_ints/get_loggers" />
+  </services>
+</bridge>

@@ -1,0 +1,20 @@
+<bridge name="test2" port="7357">
+  <topics_in> <!-- List of topics from _inside_ ROS that will be exported. -->
+	<all />	<!-- An 'all'-tag is allowed to open all topics for external clients.. -->
+  </topics_in>
+  <topics_out> <!-- List of topics that may be introduced into ROS from the _outside_. -->
+	<topic name="/rosout" />	<!-- Published topic must be explicitly specified. -->
+	<topic name="/ping" />	<!-- Published topic must be explicitly specified. -->
+  </topics_out>
+  <services>				<!-- ROS services can be exported. -->
+	<all />
+  </services>
+  <static-connections>
+    <!-- Subscribe and publish above are seen from the node specified in target's perspective,
+         i.e. which topics _it_ wants to subscribe and publish to. Is this a good idea? -->
+    <target addr="127.0.0.1:8080">
+      <subscribe name="/pong" />
+      <publish name="/ping" />
+    </target>
+  </static-connections>
+</bridge>

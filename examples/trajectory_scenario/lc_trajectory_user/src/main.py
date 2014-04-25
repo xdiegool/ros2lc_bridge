@@ -21,11 +21,11 @@ def run():
     e.add_decl(pos_vel.posRef.signature)
 
     pub = proto.publish()
-    pub.topic = '/pt_posRef'
+    pub.topic = 'S__pt_posRef'
     e.encode(pub, pub.signature)
 
     sub = proto.subscribe()
-    sub.topic = '/pt_velRef'
+    sub.topic = 'S__pt_velRef'
     e.encode(sub, sub.signature)
 
     dec_thread = threading.Thread(target=dec, args=(d,))
