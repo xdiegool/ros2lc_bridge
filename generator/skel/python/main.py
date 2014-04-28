@@ -293,10 +293,9 @@ class ClientThread(threading.Thread):
         try:
             self.send_sample(var)
         except socket.error:
-            pass                # TODO: Stop loop and clean up.
+            self.subs[topic].unregister()
 
     def send_sample(self, var):
-        print ('CT sending data: %s' % var)
         with self.enc_lock:
             self.enc.encode(var, var.signature)
 

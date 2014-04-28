@@ -53,6 +53,10 @@ static void connection_opened(struct firefly_connection *c)
         pthread_cond_broadcast(&sig);
     }
     pthread_mutex_unlock(&lock);
+
+    /* Manually init labcomm stuff in correct order. */
+    init_proto__signatures();
+    init_lc_types__signatures();
 }
 
 /* Response to sent restr. req. */

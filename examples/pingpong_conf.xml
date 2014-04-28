@@ -1,8 +1,4 @@
 <bridge name="test_bridge" port="7357">
-  <services>
-    <all />
-  </services>
-
   <topics_in>
     <topic name="/ping" />
   </topics_in>

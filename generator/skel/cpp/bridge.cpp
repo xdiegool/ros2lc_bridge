@@ -127,6 +127,8 @@ int64_t conn_received(struct firefly_transport_llp *llp, const char *addr,
 
 	res = firefly_connection_open(&actions, NULL, eq, ftc);
 
+	init_signatures();
+
 	return res;
 }
 
