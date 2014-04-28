@@ -10,6 +10,7 @@ CC:=gcc
 CFLAGS:=-Wall -Wextra -Werror \
        -Wno-unused-parameter -Wno-unused-variable \
        -Wno-unused-but-set-variable -Wno-unused-function \
+	   -DLABCOMM_CONSTRUCTOR= \
        -std=gnu99 \
        -O3 \
        -I $(FF_INC) -I $(LC_INC)
