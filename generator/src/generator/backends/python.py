@@ -113,15 +113,6 @@ CONV        = {conv}
            conv=convs))
 
 
-def get_srv_types():
-    slist = sh('rosservice list')[1]
-    services = {}
-    for sname in slist.strip().split('\n'):
-        stype = sh('rosservice type %s' % sname)[1]
-        services[sname] = stype.strip()
-    return services
-
-
 def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)

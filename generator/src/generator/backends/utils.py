@@ -105,6 +105,15 @@ def get_nested(defn):
     return nested
 
 
+def get_srv_types():
+    slist = sh('rosservice list')[1]
+    services = {}
+    for sname in slist.strip().split('\n'):
+        stype = sh('rosservice type %s' % sname)[1]
+        services[sname] = stype.strip()
+    return services
+
+
 def convert_msg_body(defn, nam, f):
     f.write('typedef struct {\n')
     for line in defn.split('\n'):        # Iterate over members.

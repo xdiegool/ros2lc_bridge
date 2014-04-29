@@ -1122,14 +1122,6 @@ def write_statics(f, pkg_name, static_connections):
     f.write(end_fn)
 
 
-def get_srv_types():
-    slist = sh('rosservice list')[1]
-    services = {}
-    for sname in slist.strip().split('\n'):
-        stype = sh('rosservice type %s' % sname)[1]
-        services[sname] = stype.strip()
-    return services
-
 srv_type_cache = {}
 def get_srv_type(srv):
     if srv in srv_type_cache:
@@ -1140,7 +1132,6 @@ def get_srv_type(srv):
         return srv_type_cache[srv]
     else:
         return None
-
 
 
 def run(conf, ws, force):
