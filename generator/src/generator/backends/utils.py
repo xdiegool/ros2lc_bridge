@@ -171,8 +171,12 @@ typedef struct { byte __dummy__; } dummy; /* TODO: Remove when vx is merged into
 
     # Message types
     f.write('\n\n/* Message types: */\n')
-    for typ, defn in defs.iteritems():
-        convert_def(typ, defn, f) # Write lc definitions.
+    try:
+        while True:
+            typ,defn = defs.popitem(True)
+            convert_def(typ, defn, f) # Write lc definitions.
+    except KeyError:
+        pass # end of dict
 
     # Topics
     f.write('\n/* Topics: */\n')

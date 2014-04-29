@@ -3,6 +3,7 @@ import stat
 from tempfile import mkstemp
 import shutil
 from config_file import *
+from collections import OrderedDict
 
 from utils import *
 
@@ -129,7 +130,7 @@ def run(conf, ws, force):
 
     # Topics
     topics = get_types()        # name -> type
-    defs = {}                   # type -> definition
+    defs = OrderedDict()        # type -> definition
     types = set(topics.itervalues())
     while types:
         t = types.pop()
