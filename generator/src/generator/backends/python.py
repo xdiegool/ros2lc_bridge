@@ -169,7 +169,7 @@ def run(conf, ws, force):
         req_topics[t] = topics[t]
 
     req_services = {}
-    for s in services:
+    for s in services_used:
         req_services[s] = services[s]
 
     (tfd, tnam) = mkstemp('.lc')
@@ -177,8 +177,9 @@ def run(conf, ws, force):
     write_lc(req_topics, defs, req_services, service_defs, tfil)
     tfil.close()
 
+    union = dict(req_topics.items() + req_services.items())
     deps = set()
-    for dep in topics.itervalues():
+    for dep in union.itervalues():
         deps.add(dep[:dep.index('/')])
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam,
