@@ -19,18 +19,18 @@ class Conversion(object):
         self.py_path = None
         self.py_func = None
         self.trig_policy = {'type': 'full'}
-        self.sources_sample = []      # [(sample_name, pseudotopic)]
-        self.sources_topic = []
-        self.destinations_sample = [] # [(sample_name, pseudotopic)]
-        self.destinations_topic = []
+        self.sample_srcs = []      # [(sample_name, pseudotopic)]
+        self.topic_srcs = []
+        self.sample_dsts = [] # [(sample_name, pseudotopic)]
+        self.topic_dsts = []
 
     def tuple_repr(self):       # Easily printable...
         # ('/tmp/fake.py', 'ft_split', [], ['force_torque'],
         #  [], [], { 'type': 'periodic', 'period': 1.0})
 
         return (_bn(self.py_path), self.py_func, _bn(self.lc_path),
-                self.sources_sample, self.sources_topic,
-                self.destinations_sample, self.destinations_topic,
+                self.sample_srcs, self.topic_srcs,
+                self.sample_dsts, self.topic_dsts,
                 self.trig_policy)
 
 
@@ -116,18 +116,18 @@ class ConfigFile(object):
                                 for src in ggchild:
                                     name = src.attrib['name']
                                     if src.tag == 'topic':
-                                        conv.sources_topic.append(name)
+                                        conv.topic_srcs.append(name)
                                     elif src.tag == 'sample':
                                         e = (name, src.attrib['pseudotopic'])
-                                        conv.sources_sample.append(e)
+                                        conv.sample_srcs.append(e)
                             elif ggchild.tag == 'destinations':
                                 for dst in ggchild:
                                     name = dst.attrib['name']
                                     if dst.tag == 'topic':
-                                        conv.destinations_topic.append(name)
+                                        conv.topic_dsts.append(name)
                                     elif dst.tag == 'sample':
                                         e = (name, dst.attrib['pseudotopic'])
-                                        conv.destinations_sample.append(e)
+                                        conv.sample_dsts.append(e)
                         self.conversions.append(conv)
 
 

@@ -389,10 +389,10 @@ def in_custom(topic, conversions):
     '''
     for i,c in enumerate(conversions):
         # When converting to a topic from LabComm sample(s).
-        if topic in c.destinations_topic:
+        if topic in c.topic_dsts:
             return i, c
         # When converting from a topic to LabComm sample(s).
-        if topic in c.sources_topic:
+        if topic in c.topic_srcs:
             return i,c
     return -1,None
 
@@ -466,7 +466,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                                                         type_name=topic_name))
         else: # Custom conversion
             lc_ns = extract_lc_ns(custom.lc_path, '')
-            for t in custom.sources_sample:
+            for t in custom.sample_srcs:
                 # t[0] is sample type, t[1] is pseudo-topic
                 if t[1] in decl_written:
                     continue
@@ -488,15 +488,15 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
 
     for i,c in enumerate(conversions):
         clientf.write('\n\t// Conv number {i}'.format(i=i))
-        if len(c.sources_topic + c.sources_sample) > 1:
+        if len(c.topic_srcs + c.sample_srcs) > 1:
             clientf.write(client_conv_cache.format(i=i))
-            # for s in c.destinations_sample:
+            # for s in c.sample_dsts:
             #     clientf.write(client_conv_cache.format(name=msg2id(s[1])))
 
-            # for t in c.destinations_topic:
+            # for t in c.topic_dsts:
             #     clientf.write(client_conv_cache.format(name=msg2id(t)))
 
-        for t in c.sources_topic:
+        for t in c.topic_srcs:
             topic_type = topics_types[t].replace('/', '::') + '::ConstPtr'
             clientf.write(client_conv_member.format(type_name=topic_type,
                                                     name=msg2id(t) + '_val'))
@@ -505,7 +505,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         # freed once the callback returns. (And LabComm types can contain
         # pointers to arrays so we basically have to add a deep-copy function
         # to the LabComm compiler to get this to work.)
-        for s in c.sources_sample:
+        for s in c.sample_srcs:
             lc_ns = extract_lc_ns(c.lc_path, '')
             ptopic = msg2id(s[1])
             clientf.write(client_conv_member.format(type_name=lc_ns+'_'+s[0],
@@ -541,11 +541,11 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         i, custom = in_custom(topic, conversions)
         if custom:
             lc_ns = extract_lc_ns(custom.lc_path, '')
-            for t in custom.sources_topic:
+            for t in custom.topic_srcs:
                 reg_written.add(t)
                 clientf.write(client_subscribe_reg.format(topic_name=msg2id(t),
                                                           ros_topic_name=t))
-            for s in custom.destinations_sample:
+            for s in custom.sample_dsts:
                 clientf.write(client_enc_reg.format(lc_ns=lc_ns, name=s[0]))
         else:
             lc_topic = msg2id(topic)
@@ -564,13 +564,13 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         i, custom = in_custom(topic, conversions)
         if custom:
             lc_ns = extract_lc_ns(custom.lc_path, '')
-            for t in custom.destinations_topic:
+            for t in custom.topic_dsts:
                 reg_written.add(t)
                 topic_type = topics_types[t].replace('/', '::')
                 clientf.write(setup_imports_pub.format(topic_name=msg2id(t),
                                                        topic_type=topic_type,
                                                        topic=t))
-            for s in custom.sources_sample:
+            for s in custom.sample_srcs:
                 clientf.write(setup_imports_dec_reg.format(lc_ns=lc_ns,
                                                            lc_name=msg2id(s[0]),
                                                            name=msg2id(s[1])))
@@ -619,10 +619,10 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         print 'py path:       ', conv.py_path
         print 'conv func:     ', conv.py_func
         print 'trig policy:   ', conv.trig_policy
-        print 'source samples:', conv.sources_sample
-        print 'source topics: ', conv.sources_topic
-        print 'dest samples:  ', conv.destinations_sample
-        print 'dest topics:   ', conv.destinations_topic
+        print 'source samples:', conv.sample_srcs
+        print 'source topics: ', conv.topic_srcs
+        print 'dest samples:  ', conv.sample_dsts
+        print 'dest topics:   ', conv.topic_dsts
         print ''
 
     def write_custom_out(f, topicsample, is_topic, num, custom):
@@ -632,7 +632,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
             tmp = topicsample
         else:
             tmp = topicsample[1]
-        if len(custom.sources_sample + custom.sources_topic) > 1:
+        if len(custom.sample_srcs + custom.topic_srcs) > 1:
             # Add the incomming topic/sample to the set of cached values.
             f.write(custom_set_add.format(i=num, topic=tmp))
 
@@ -642,36 +642,36 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
             var = '&{var}, '
             if not is_topic:
                 var = '&c->{var}, '
-            if len(custom.destinations_topic + custom.destinations_sample) > 0:
+            if len(custom.topic_dsts + custom.sample_dsts) > 0:
                 if src:
-                    to = len(custom.sources_topic)
-                    if len(custom.sources_sample) == 0 and not dst:
+                    to = len(custom.topic_srcs)
+                    if len(custom.sample_srcs) == 0 and not dst:
                         to = -1
                     [f.write('{var}.get(), '.format(var=msg2id(t) + '_val'))
-                            for t in custom.sources_topic[:to]]
+                            for t in custom.topic_srcs[:to]]
                     if to == -1:
-                        var = msg2id(custom.sources_topic[-1])
+                        var = msg2id(custom.topic_srcs[-1])
                         f.write('{var}.get());'.format(var=var + '_val'))
                     [f.write(var.format(var=msg2id(s[1]) + '_val'))
-                            for s in custom.sources_sample]
+                            for s in custom.sample_srcs]
                     if (not to == -1 and
-                        len(custom.destinations_topic) == 0 and
-                        len(custom.destinations_sample) == 0):
-                        var = msg2id(custom.sources_sample[-1][1])
+                        len(custom.topic_dsts) == 0 and
+                        len(custom.sample_dsts) == 0):
+                        var = msg2id(custom.sample_srcs[-1][1])
                         f.write('&{var});'.format(var=var + '_val'))
                 if dst:
-                    to = len(custom.destinations_topic)
-                    if len(custom.destinations_sample) == 0:
+                    to = len(custom.topic_dsts)
+                    if len(custom.sample_dsts) == 0:
                         to = -1
                     [f.write('&{var}, '.format(var=msg2id(t)))
-                            for t in custom.destinations_topic[:to]]
+                            for t in custom.topic_dsts[:to]]
                     if to == -1:
-                        var = msg2id(custom.destinations_topic[-1])
+                        var = msg2id(custom.topic_dsts[-1])
                         f.write('&{var});'.format(var=var))
                     [f.write('&{var}, '.format(var=msg2id(s[1])))
-                            for s in custom.destinations_sample[:-1]]
+                            for s in custom.sample_dsts[:-1]]
                     if not to == -1:
-                        var = msg2id(custom.destinations_sample[-1][1])
+                        var = msg2id(custom.sample_dsts[-1][1])
                         f.write('&{var});'.format(var=var))
 
         def write_defs(custom, items, is_topic):
@@ -686,13 +686,13 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                     typ = lc_ns + '_' + tmp[0]
                     name = msg2id(tmp[1])
                 f.write(custom_dst_var_def.format(typ=typ,name=name))
-                size = len(custom.sources_topic + custom.sources_sample)
+                size = len(custom.topic_srcs + custom.sample_srcs)
                 if custom.trig_policy['type'] == 'full' and size > 1:
-                    for t in custom.sources_topic:
+                    for t in custom.topic_srcs:
                         f.write(custom_examine_cache.format(name=name,
                                                             ros_topic=t,
                                                             i=num))
-                    for s in custom.sources_sample:
+                    for s in custom.sample_srcs:
                         f.write(custom_examine_cache.format(name=name,
                                                             ros_topic=s[1],
                                                             i=num))
@@ -704,8 +704,8 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
 
 
         # Write definitions for destinations.
-        write_defs(custom, custom.destinations_sample, False)
-        write_defs(custom, custom.destinations_topic, True)
+        write_defs(custom, custom.sample_dsts, False)
+        write_defs(custom, custom.topic_dsts, True)
 
         # Reset the old value pointer and assign the new one.
         if is_topic:
@@ -737,16 +737,16 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                     write_send(convf, typ, name, lc_prefix=lc_ns, indent=2)
                 # Clear variables if we are in full trigger mode.
                 f.write('\t}\n')
-        write_send_ts(convf, custom, custom.destinations_sample, False)
-        write_send_ts(convf, custom, custom.destinations_topic, True)
-        size = len(custom.sources_sample + custom.sources_topic)
+        write_send_ts(convf, custom, custom.sample_dsts, False)
+        write_send_ts(convf, custom, custom.topic_dsts, True)
+        size = len(custom.sample_srcs + custom.topic_srcs)
         if custom.trig_policy['type'] == 'full' and size > 1:
-            for t in custom.destinations_topic:
+            for t in custom.topic_dsts:
                 name = msg2id(t)
                 convf.write(custom_should_send_topic.format(name=name))
                 convf.write(custom_send_clear_set.format(i=num))
                 convf.write('\t}\n')
-            for s in custom.destinations_sample:
+            for s in custom.sample_dsts:
                 name = msg2id(s[1])
                 convf.write(custom_should_send.format(name=name))
                 convf.write(custom_send_clear_set.format(i=num))
@@ -755,10 +755,10 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         # Write call to free function.
         write_fn_call(custom, custom.py_func + '_free', src=False)
         # f.write('\t{free_fn}('.format(free_fn=custom.py_func + '_free'))
-        # if len(custom.destinations_sample + custom.destinations_topic) > 0:
-        #     for s in custom.destinations_sample[:-1]: # All but last var
+        # if len(custom.sample_dsts + custom.topic_dsts) > 0:
+        #     for s in custom.sample_dsts[:-1]: # All but last var
         #         f.write('&{var}, '.format(var=msg2id(s[1])))
-        #     var = msg2id(custom.destinations_sample[-1][1])
+        #     var = msg2id(custom.sample_dsts[-1][1])
         #     f.write('&{var});'.format(var=var))
         f.write('\n}\n')
 
@@ -792,11 +792,11 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
             return
         i, custom = in_custom(topic, conversions)
         if custom:
-            [custom_topics_done.add(t) for t in custom.destinations_topic]
+            [custom_topics_done.add(t) for t in custom.topic_dsts]
             convf.write('// ' + msg2id(topic) + '\n')
             # f.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(s[1]),
             #                                   type_name=s[0], lc_ns=lc_ns))
-            for s in custom.sources_sample:
+            for s in custom.sample_srcs:
                 convf.write(lc2ros_cb_fn_begin.format(topic_name=msg2id(s[1]),
                                                       type_name=s[0],
                                                       lc_ns=lc_ns))
