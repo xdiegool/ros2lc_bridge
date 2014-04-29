@@ -6,6 +6,13 @@ from time import sleep
 import threading
 from pprint import pprint
 import sys
+import signal
+
+running = True
+
+def handler(signum, frame):
+    global running
+    running = False
 
 
 def run():
@@ -29,10 +36,11 @@ def run():
     e.encode(sub, sub.signature)
 
     dec_thread = threading.Thread(target=dec, args=(d,))
+    dec_thread.daemon = True
     dec_thread.start()
 
     i = 0;
-    while True:
+    while running:
         print "send %d" % i
         pos = pos_vel.posRef()
         pos.x = 1.0 + i
@@ -56,4 +64,5 @@ def dec(d):
 
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, handler)
     run()
