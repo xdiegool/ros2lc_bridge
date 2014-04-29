@@ -1,16 +1,11 @@
-USER := $(shell whoami)
-ROSWS=~/ros_ws
-ifeq ($(USER),erik)
-	ROSWS=~/src
-endif
+BR:=$(shell rospack find service_bridge)
 
 .PHONY: lc build_bridge
 
 all: lc
 
 lc: build_bridge
-	cp $(ROSWS)/service_bridge/lc/lc_types.lc lc/ && \
-		make -C $(ROSWS)/service_bridge
+	cp $(BR)/lc/lc_types.lc lc/
 	java -jar $(LABCOMMC) --python=src/lc_types.py lc/lc_types.lc
 	java -jar $(LABCOMMC) --python=src/proto.py    lc/proto.lc
 	@echo
@@ -18,4 +13,4 @@ lc: build_bridge
 	@echo
 
 build_bridge:
-	rosrun generator_c generator.py -c conf.xml -f
+	rosrun generator generator.py --lang=python -c conf.xml -f
