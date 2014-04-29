@@ -332,7 +332,7 @@ class ClientThread(threading.Thread):
             rospy.loginfo('Accepted publish for: %s', topic)
             self.pubs[topic] = rospy.Publisher(topic, topic_types_py[topic])
         elif topic in pseudotopic_sinks:
-            rospy.logwarn('Publish notification on %s', topic)
+            rospy.loginfo('Publish notification on %s', topic)
         else:
             rospy.logwarn('Rejected publish request for topic %s', topic)
 
