@@ -133,16 +133,18 @@ class ConfigFile(object):
 
     def assert_defined(self, known_topics):
         sall  = set(known_topics)
-        ukin  = set(self.exports)  - sall
-        ukout = set(self.imports) - sall
-        if ukin or ukout:
-            raise ConfigException("Config contains unknown topics(s): %s" % ','.join(ukin | ukout))
+        unknown_imports = set(self.imports) - sall
+        unknown_exports = set(self.exports) - sall
+        if unknown_imports or unknown_exports:
+            raise ConfigException("Config contains unknown topics(s): %s"
+                                  % ','.join(unknown_imports |
+                                             unknown_exports))
         if self.export_all:
-            tin = list(known_topics)
+            topics_export = list(known_topics)
         else:
-            tin = list(self.exports)
-        tout = list(self.imports)
-        return (tin, tout)
+            topics_export = list(self.exports)
+        topics_import = list(self.imports)
+        return (topics_import, topics_export)
 
     def assert_defined_services(self, known_services):
         uk = set(self.services) - set(known_services)

@@ -153,7 +153,7 @@ def run(conf, ws, force):
         types |= get_nested(defn) - set(defs.keys())
     del types
 
-    exports, imports = cf.assert_defined(list(topics))
+    imports, exports = cf.assert_defined(list(topics))
     services_used = {s: services[s] for s in
                      cf.assert_defined_services(list(services))}
     topics_types = { t: topics[t] for t in exports + imports }
