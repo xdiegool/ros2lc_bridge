@@ -216,8 +216,11 @@ class LabCommBridge(object):
 
         while not rospy.is_shutdown():
             rospy.loginfo("Bridge waiting...")
-            csock, caddr = ssock.accept()
-            ClientThread(csock, caddr).start()
+            try:
+                csock, caddr = ssock.accept()
+                ClientThread(csock, caddr).start()
+            except socket.error:
+                rospy.loginfo('Shutting down bridge.')
 
 
 class ServiceWorker(threading.Thread):
