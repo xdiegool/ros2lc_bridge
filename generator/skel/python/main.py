@@ -236,7 +236,7 @@ class ServiceWorker(threading.Thread):
         for name, typ in self.sign.decl.field:
             if name == '__dummy__': # Ugly fix for labcomm weirdness.
                 continue
-            arg.append(getattr(self.params, name))
+            args.append(getattr(self.params, name))
         rospy.wait_for_service(self.srv_name)
 
         res = services[self.srv_name](*args)
