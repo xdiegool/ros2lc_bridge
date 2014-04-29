@@ -397,7 +397,7 @@ def in_custom(topic, conversions):
     return -1,None
 
 
-def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
+def write_conv(clientf, convf, pkg_name, imports, exports,
                topics_types, services, service_defs, conversions):
     '''Writes the definition of the client class as well as conversion code.
 
@@ -408,8 +408,8 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
     :param clientf: the file to write the client definition to.
     :param convf: the file to write converision code to.
     :param pkg_name: string with the name of the package.
-    :param topics_in: a list topics imported into the ROS system.
-    :param topics_out: a list topics exported from the ROS system.
+    :param imports: a list topics imported into the ROS system.
+    :param exports: a list topics exported from the ROS system.
     :param topics_types: a dict of topic names => topic types.
     :param services: a list of services that should be exported.
     :param service_defs: a dict of a service=>type mappings
@@ -444,7 +444,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
     write_once(clientf, 'extern "C" {{\n#include "{f}"\n}}\n', 'f', tmp)
 
     # Write one include per msg type needed.
-    tmp = [topics_types[t] for t in topics_out + topics_in]
+    tmp = [topics_types[t] for t in exports + imports]
     write_once(clientf, client_class_include, 'topic_type', tmp)
 
     # Write one include per service type needed.
@@ -457,7 +457,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
     # Write one function declaration (LC callback) per publisher
     decl_written = set()
-    for topic in topics_in:
+    for topic in imports:
         i, custom = in_custom(topic, conversions)
         if not custom: # Auto conversion
             topic_name = msg2id(topic)
@@ -512,13 +512,13 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
                                                     name=ptopic+'_val'))
 
     # Write class members (ROS callback) for each subscriber.
-    for topic in topics_out:
+    for topic in exports:
         topic_name = msg2id(topic)
         topic_type_cpp = topics_types[topic].replace('/', '::')
         clientf.write(client_ros_subscriber_members.format(topic_name=topic_name,
                                                            topic_type=topic_type_cpp))
 
-    for topic in topics_in:
+    for topic in imports:
         topic_name = msg2id(topic)
         topic_type = topics_types[topic].replace('/', '::')
         clientf.write(client_ros_publisher_member.format(topic_name=topic_name,
@@ -535,7 +535,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
     # Write ROS subscriptions and LabComm registrations (i.e. ROS->LC stuff).
     reg_written = set()
-    for topic in topics_out:
+    for topic in exports:
         if topic in reg_written:
             continue
         i, custom = in_custom(topic, conversions)
@@ -558,7 +558,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
     clientf.write(setup_imports_pub_begin)
     reg_written = set()
-    for topic in topics_in:
+    for topic in imports:
         if topic in reg_written:
             continue
         i, custom = in_custom(topic, conversions)
@@ -764,7 +764,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
 
     # Write subscriber callbacks that converts to LabComm samples.
-    for topic in topics_out:
+    for topic in exports:
         topic_name = msg2id(topic)
         topic_type = topics_types[topic]
         topic_type_cpp = topic_type.replace('/', '::')
@@ -787,7 +787,7 @@ def write_conv(clientf, convf, pkg_name, topics_in, topics_out,
 
     # Write LabComm callbacks that converts to ROS msgs.
     custom_topics_done = set()
-    for topic in topics_in:
+    for topic in imports:
         if topic in custom_topics_done:
             return
         i, custom = in_custom(topic, conversions)
@@ -1173,10 +1173,10 @@ def run(conf, ws, force):
         types |= get_nested(defn) - set(defs.keys())
     del types
 
-    topics_in, topics_out = cf.assert_defined(list(topics))
+    imports, exports = cf.assert_defined(list(topics))
     services_used = {s: services[s] for s in
                      cf.assert_defined_services(list(services))}
-    topics_types = { t: topics[t] for t in topics_in + topics_out }
+    topics_types = { t: topics[t] for t in imports + exports }
 
     # C++ configuration
     (cfd, cnam) = mkstemp('.h')
@@ -1190,7 +1190,7 @@ def run(conf, ws, force):
     clientfil = os.fdopen(clientfd, 'w')
     convfil = os.fdopen(convfd, 'w')
     write_conv(clientfil, convfil, cf.name,
-               topics_in, topics_out, topics_types,
+               imports, exports, topics_types,
                services_used, service_defs, cf.conversions)
     convfil.close()
 
@@ -1201,7 +1201,7 @@ def run(conf, ws, force):
     statfil.close()
 
     req_topics = {}
-    for t in topics_in + topics_out:
+    for t in imports + exports:
         req_topics[t] = topics[t]
 
     req_services = {}

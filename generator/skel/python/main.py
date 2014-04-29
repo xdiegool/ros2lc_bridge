@@ -22,7 +22,7 @@ def id2msg(msg_name):
 # rospy.init_node(conf.PKG_NAME)
 
 topic_types_py = {}
-for topic in conf.TOPICS_IN + conf.TOPICS_OUT:
+for topic in conf.EXPORTS + conf.IMPORTS:
     pkg, typ = conf.TOPIC_TYPES[topic].split('/')
     tmp = __import__('%s.msg' % pkg, globals(), locals(), [typ], 0)
     cls = getattr(tmp, typ)
@@ -31,7 +31,7 @@ for topic in conf.TOPICS_IN + conf.TOPICS_OUT:
 
 
 ttmap = {}         # Topic -> LabComm class
-for topic in conf.TOPICS_OUT + conf.TOPICS_IN:
+for topic in conf.IMPORTS + conf.EXPORTS:
     type_str = msg2id(topic)
     type_class = getattr(lc_types, type_str)
     ttmap[topic] = type_class
@@ -270,11 +270,11 @@ class ClientThread(threading.Thread):
         if static_dict:
             for pubsub,topics in static_dict.iteritems():
                 for t in topics:
-                    if pubsub == 'publish' and t in conf.TOPICS_OUT:
+                    if pubsub == 'publish' and t in conf.IMPORTS:
                         rospy.loginfo(('Setting up static publish for topic %s '
                                        'to client %s'), t, client_addr)
                         self.pubs[t] = rospy.Publisher(t, topic_types_py[t])
-                    elif pubsub == 'subscribe' and t in conf.TOPICS_IN:
+                    elif pubsub == 'subscribe' and t in conf.EXPORTS:
                         rospy.loginfo(('Setting up static subscribe for topic '
                                        '%s to client %s'), t, client_addr)
                         typ = ttmap[t]
@@ -303,7 +303,7 @@ class ClientThread(threading.Thread):
         """Handles incoming subscribe request from the client."""
         topic = id2msg(sub.topic)
 
-        if topic in conf.TOPICS_OUT:
+        if topic in conf.EXPORTS:
             rospy.loginfo('Accepted subscribe request for topic: %s', topic)
 
             typ = ttmap[topic]
@@ -328,7 +328,7 @@ class ClientThread(threading.Thread):
         """Handles incoming publish request from the client."""
         topic = id2msg(pub.topic)
 
-        if topic in conf.TOPICS_IN:
+        if topic in conf.IMPORTS:
             rospy.loginfo('Accepted publish for: %s', topic)
             self.pubs[topic] = rospy.Publisher(topic, topic_types_py[topic])
         elif topic in pseudotopic_sinks:
@@ -401,7 +401,7 @@ class ClientThread(threading.Thread):
                     elif sig.name in sample_in_hooks: # TODO: Check reg.?
                         for conv in sample_in_hooks[sig.name]:
                             conv.put_sample(sig.name, val)
-                    elif rosname in conf.TOPICS_IN: # TODO: out.
+                    elif rosname in conf.IMPORTS: # TODO: out.
                         self._handle_topic(val, sig)
                     else:
                         self._handle_service(val, sig)

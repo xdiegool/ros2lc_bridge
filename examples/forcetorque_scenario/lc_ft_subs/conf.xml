@@ -1,7 +1,7 @@
 <bridge name="export_topics_plus_ftpt" port="7357">
-  <topics_out>
+  <exports>
     <topic name="/force_torque" />
-  </topics_out>
+  </exports>
 
   <conversions>
 	<conversion>

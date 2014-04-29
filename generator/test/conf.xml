@@ -1,12 +1,12 @@
 <bridge name="test" port="7357">
-  <topics_in>                   <!-- Topics which can be subscribed to by the bridge node. -->
+  <exports>                   <!-- Topics which can be subscribed to by the bridge node. -->
 	<all />	                    <!-- All topics existing at the time of generation. -->
-  </topics_in>
+  </exports>
 
-  <topics_out>                  <!-- Topics which can be published by the bridge node. -->
+  <imports>                  <!-- Topics which can be published by the bridge node. -->
 	<topic name="/rosout" />	<!-- Published topics must be explicitly specified. TODO: Why?-->
 	<topic name="/ping" />
-  </topics_out>
+  </imports>
 
   <services>				    <!-- ROS services can be exported. -->
 	<all />						<!-- Allow all services to be invoked externally. -->

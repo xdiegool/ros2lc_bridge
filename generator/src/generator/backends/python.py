@@ -85,7 +85,7 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
     return d
 
 
-def write_conf(f, bname, port, topics_in, topics_out, topics, services,
+def write_conf(f, bname, port, exports, imports, topics, services,
                static_conns, conversions):
     convs = []
     for conv in conversions:
@@ -95,15 +95,15 @@ def write_conf(f, bname, port, topics_in, topics_out, topics, services,
 PKG_NAME    = '{name}'
 PORT        = {port}
 SLASHSUB    = '{slsub}'
-TOPICS_IN   = {t_in}
-TOPICS_OUT  = {t_out}
+EXPORTS     = {exports}
+IMPORTS     = {imports}
 TOPIC_TYPES = {t_t}
 SERVICES    = {srvs}
 STATIC_CONNS = {stat_conns}
 CONV        = {conv}
 '''.format(name=bname,
-           t_in=topics_in,
-           t_out=topics_out,
+           exports=exports,
+           imports=imports,
            t_t=topics,
            port=port,
            slsub=SLASHSUB,
@@ -152,20 +152,20 @@ def run(conf, ws, force):
         types |= get_nested(defn) - set(defs.keys())
     del types
 
-    topics_in, topics_out = cf.assert_defined(list(topics))
+    exports, imports = cf.assert_defined(list(topics))
     services_used = {s: services[s] for s in
                      cf.assert_defined_services(list(services))}
-    topics_types = { t: topics[t] for t in topics_in + topics_out }
+    topics_types = { t: topics[t] for t in exports + imports }
 
     (cfd, cnam) = mkstemp('.xml')
     cfil = os.fdopen(cfd, 'w')
     write_conf(cfil, cf.name, cf.port,
-               topics_in, topics_out, topics_types,
+               exports, imports, topics_types,
                services_used, cf.static, cf.conversions)
     cfil.close()
 
     req_topics = {}
-    for t in topics_in + topics_out:
+    for t in exports + imports:
         req_topics[t] = topics[t]
 
     req_services = {}

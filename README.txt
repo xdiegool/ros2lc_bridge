@@ -134,13 +134,13 @@ SIMPLE CONFIGURATION
     explanation of the basics follows:
 
         <bridge name="test_bridge" port="7357">
-            <topics_in>
+            <imports>
                 <topic name="/ping" />
-            </topics_in>
+            </imports>
 
-            <topics_out>
+            <exports>
                 <topic name="/pong" />
-            </topics_out>
+            </exports>
         </bridge>
 
     The root node has two required attributes, name and port which are fairly
@@ -151,14 +151,13 @@ SIMPLE CONFIGURATION
     find one. So if we have ~/src first in our $ROS_PACKAGE_PATH, the bridge
     would put the result of the abode configuration in ~/src/test_bridge.
 
-    topics_in and topics_out are unfortunately a bit confusingly names (plans
-    exists to switch them to better suited ones). topics_in lists the topics
-    one wishes to import to the ROS system and topics_out lists the topics one
-    wishes to export from the ROS system. This example config is taken from
-    the pingpong example in the repository in which an external program
-    publishes on /ping and subscribes to /pong. A ROS node does the opposite
-    (subscribes on /ping and publishes on /pong) and echoes everything it
-    hears on /ping to /pong (which will be heard be the external program).
+    imports lists the topics one wishes to import to the ROS system and
+    exports lists the topics one wishes to export from the ROS system. This
+    example config is taken from the pingpong example in the repository in
+    which an external program publishes on /ping and subscribes to /pong. A
+    ROS node does the opposite (subscribes on /ping and publishes on /pong)
+    and echoes everything it hears on /ping to /pong (which will be heard be
+    the external program).
 
 RUNNING BRIDGE
 

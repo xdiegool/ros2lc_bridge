@@ -1,16 +1,16 @@
 <bridge name="traj" port="7357">
-  <topics_in>
+  <imports>
 	<topic name="/posX" />
 	<topic name="/posY" />
 	<topic name="/posZ" />
-  </topics_in>
+  </imports>
 
-  <topics_out>
+  <exports>
 	<topic name="/velX" />
 	<topic name="/velY" />
 	<topic name="/velZ" />
 	<topic name="/velT" />
-  </topics_out>
+  </exports>
 
   <conversions>
 

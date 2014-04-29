@@ -43,9 +43,9 @@ class ConfigFile(object):
         self.name = None
         self.port = 0
         # Topics
-        self.allow_all_incoming_topics = False
-        self.topics_in = []
-        self.topics_out = []
+        self.export_all = False
+        self.exports = []
+        self.imports = []
         # Services
         self.allow_all_services = False
         self.services = []
@@ -66,16 +66,16 @@ class ConfigFile(object):
         self.name = root.attrib['name']
         self.port = root.attrib['port']
         for child in root:
-            if child.tag == 'topics_in':
+            if child.tag == 'exports':
                 for gchild in child:
                     if gchild.tag == 'all':
-                        self.allow_all_incoming_topics = True
+                        self.export_all = True
                     elif gchild.tag == 'topic':
-                        self.topics_in.append(gchild.attrib['name'])
-            elif child.tag == 'topics_out':
+                        self.exports.append(gchild.attrib['name'])
+            elif child.tag == 'imports':
                 for gchild in child:
                     if gchild.tag == 'topic':
-                        self.topics_out.append(gchild.attrib['name'])
+                        self.imports.append(gchild.attrib['name'])
             elif child.tag == 'services':
                 for gchild in child:
                     if gchild.tag == 'all':
@@ -133,15 +133,15 @@ class ConfigFile(object):
 
     def assert_defined(self, known_topics):
         sall  = set(known_topics)
-        ukin  = set(self.topics_in)  - sall
-        ukout = set(self.topics_out) - sall
+        ukin  = set(self.exports)  - sall
+        ukout = set(self.imports) - sall
         if ukin or ukout:
             raise ConfigException("Config contains unknown topics(s): %s" % ','.join(ukin | ukout))
-        if self.allow_all_incoming_topics:
+        if self.export_all:
             tin = list(known_topics)
         else:
-            tin = list(self.topics_in)
-        tout = list(self.topics_out)
+            tin = list(self.exports)
+        tout = list(self.imports)
         return (tin, tout)
 
     def assert_defined_services(self, known_services):

@@ -4,14 +4,14 @@
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'generator'))
 from config_file import ConfigFile
 
 if __name__ == '__main__':
     cf = ConfigFile(os.path.join(os.path.dirname(__file__), 'conf.xml'))
-    assert cf.allow_all_incoming_topics
-    assert cf.topics_in == []
-    assert cf.topics_out == ['/rosout', '/ping']
+    assert cf.export_all
+    assert cf.exports == []
+    assert cf.imports == ['/rosout', '/ping']
     i, o = cf.assert_defined(['/rosout', '/ping', '/ta', '/tb'])
     assert set(i) == set(['/ta', '/tb', '/rosout', '/ping'])
     assert o == ['/rosout', '/ping']
