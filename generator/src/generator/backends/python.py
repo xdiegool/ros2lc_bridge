@@ -147,7 +147,7 @@ def run(conf, ws, force):
     imports, exports = cf.assert_defined(list(topics))
     services_used = {s: services[s] for s in
                      cf.assert_defined_services(list(services))}
-    topics_types = { t: topics[t] for t in exports + imports }
+    topics_types = { t: topics[t] for t in imports + exports }
 
     (cfd, cnam) = mkstemp('.xml')
     cfil = os.fdopen(cfd, 'w')

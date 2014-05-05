@@ -100,13 +100,14 @@ static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v);
 
 client_class_begin = '''
 class client {
-    ros::NodeHandle *n;
+	ros::NodeHandle *n;
 	struct labcomm_decoder *dec;
 	struct labcomm_encoder *enc;
 	boost::mutex enc_lock;
 	std::set<std::string> active_topics;
 
 public:
+	bool close;
 	std::vector<boost::shared_ptr<boost::thread> > service_threads;
 '''
 
@@ -130,11 +131,7 @@ client_ros_publisher_member = '''
 '''
 
 client_functions = '''
-	client(struct firefly_connection *conn,
-			ros::NodeHandle *n,
-			struct sockaddr_in *stat_addr = NULL,
-			std::vector<std::string> *subscribe_to = NULL,
-			std::vector<std::string> *publish_on = NULL);
+	client(ros::NodeHandle *n);
 	~client();
 
 	void set_encoder(struct labcomm_encoder *enc);
@@ -152,6 +149,10 @@ client_subscribe_reg = '''
 client_enc_reg = '''
 		firefly_channel_types_add_encoder_type(types,
 			labcomm_encoder_register_{lc_ns}_{name});
+'''
+
+client_stat_begin = '''
+	void setup_static() {
 '''
 
 setup_imports_pub_begin = '''
@@ -204,7 +205,7 @@ custom_call_begin = '''
 	{conv_fn}('''
 
 custom_should_send = '''
-	if (active_topics.find("{name}") != active_topics.end()
+	if (active_topics.find("{ros_name}") != active_topics.end()
 		&& {name} && should_send_{name}) {{
 '''
 custom_should_send_topic = '''
@@ -222,7 +223,7 @@ custom_reset = '''
 
 subscriber_type_def = '''
 	// Convert received ROS data.
-	if (active_topics.find("{topic_name}") != active_topics.end()) {{
+	if (active_topics.find("{ros_name}") != active_topics.end()) {{
 		lc_types_{topic_name} conv;
 '''
 
@@ -399,7 +400,7 @@ def in_custom(topic, conversions):
 
 
 def write_conv(clientf, convf, pkg_name, imports, exports,
-               topics_types, services, service_defs, conversions):
+               topics_types, services, service_defs, conversions, stat_conns):
     '''Writes the definition of the client class as well as conversion code.
 
     The client class handles subscribing to and publishing on topics as well as
@@ -596,6 +597,25 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                       .format(name=name))
     clientf.write('\t' + end_fn)
 
+    # Write setup for static connections.
+    clientf.write(client_stat_begin)
+
+    static_conns_setup = '''
+		active_topics.insert("{name}");
+		std::cout << "{name}" << std::endl;
+'''
+
+    for conn in stat_conns:
+        subs = stat_conns[conn]['subscribe']
+        pubs = stat_conns[conn]['publish']
+
+        # Populate subscriber list.
+        for pubsub in subs + pubs:
+            clientf.write(static_conns_setup.format(name=pubsub))
+
+    clientf.write(end_fn);
+
+    # Write end-of-class.
     clientf.write(class_end)
 
     # Write LC callbacks for services.
@@ -734,7 +754,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                 else:
                     typ = tmp[0]
                     name = msg2id(tmp[1])
-                    f.write(custom_should_send.format(name=name))
+                    f.write(custom_should_send.format(ros_name=tmp[1],name=name))
                     write_send(convf, typ, name, lc_prefix=lc_ns, indent=2)
                 # Clear variables if we are in full trigger mode.
                 f.write('\t}\n')
@@ -749,7 +769,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                 convf.write('\t}\n')
             for s in custom.sample_dsts:
                 name = msg2id(s[1])
-                convf.write(custom_should_send.format(name=name))
+                convf.write(custom_should_send.format(ros_name=s[1],name=name))
                 convf.write(custom_send_clear_set.format(i=num))
                 convf.write('\t}\n')
 
@@ -777,7 +797,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         if custom:
             write_custom_out(convf, topic, True, i, custom)
         else:
-            convf.write(subscriber_type_def.format(topic_name=topic_name))
+            convf.write(subscriber_type_def.format(ros_name=topic,topic_name=topic_name))
             free_list = convert_type(convf, get_def(topic_type), 'to_lc',
                                      lc_ptr=False, ros_ptr=True, ros_varname='msg',
                                      lc_varname='conv')
@@ -1053,40 +1073,23 @@ def write_free(f, free_list):
             f.write('\tfree({name});\n'.format(name=name))
 
 static_conns_begin = '''
-#include <cstring>
-
 void LabCommBridge::setup_static()
 {{
 '''
 
 static_conns_decl = '''
-	struct sockaddr_in addr;
-	std::vector<std::string> subs;
-	std::vector<std::string> pubs;
-	client *c;
-
+	struct firefly_transport_connection *conn;
+	int res;
 '''
 
 static_conns_content = '''
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	inet_pton(AF_INET, "{addr}", &addr.sin_addr);
-	addr.sin_port = htons({port});
-'''
+	conn = firefly_transport_connection_udp_posix_new(llp, "{addr}", {port},
+					FIREFLY_TRANSPORT_UDP_POSIX_DEFAULT_TIMEOUT);
 
-static_conns_loop = '''
-	for (int j = 0; j < {ln}; j++) {{'''
-
-static_conns_pubsub = '''
-		{method}.push_back("{name}");
-'''
-
-static_conns_content_end = '''
-	c = new client(-1, n, &addr, &subs, &pubs);
-	boost::thread client_thread{n}(start_client, c);
-	subs.clear();
-	pubs.clear();
-
+	res = firefly_connection_open(&actions, NULL, eq, conn, (void *) 1);
+	if (res < 0) {{
+		throw new std::runtime_error("ERROR: Opening static connection.");
+	}}
 '''
 
 def write_statics(f, pkg_name, static_connections):
@@ -1096,28 +1099,11 @@ def write_statics(f, pkg_name, static_connections):
         # Write declarations.
         f.write(static_conns_decl)
 
-        i = 0
         for conn in static_connections:
             addr = conn.split(':')[0]
             port = conn.split(':')[1]
-            subs = static_connections[conn]['subscribe']
-            pubs = static_connections[conn]['publish']
 
             f.write(static_conns_content.format(addr=addr,port=port))
-            f.write(static_conns_loop.format(ln=len(subs)))
-            # Populate subscriber list.
-            for sub in subs:
-                f.write(static_conns_pubsub.format(method='subs',name=sub))
-            f.write('\t' + end_fn)
-
-            # Populate publisher list.
-            f.write(static_conns_loop.format(ln=len(pubs)))
-            for pub in pubs:
-                f.write(static_conns_pubsub.format(method='pubs',name=sub))
-            f.write('\t' + end_fn)
-
-            f.write(static_conns_content_end.format(n=i))
-            i += 1
 
     f.write(end_fn)
 
@@ -1183,7 +1169,7 @@ def run(conf, ws, force):
     convfil = os.fdopen(convfd, 'w')
     write_conv(clientfil, convfil, cf.name,
                imports, exports, topics_types,
-               services_used, service_defs, cf.conversions)
+               services_used, service_defs, cf.conversions, cf.static)
     convfil.close()
 
     # C++ static connections.

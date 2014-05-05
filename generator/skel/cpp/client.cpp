@@ -5,14 +5,14 @@
 #include <vector>
 #include <string>
 
-client::client(struct firefly_connection *conn,
-		ros::NodeHandle *n,
-		struct sockaddr_in *stat_addr,
-		std::vector<std::string> *subscribe_to,
-		std::vector<std::string> *publish_on)
+client::client(ros::NodeHandle *n)
 	: n(n),
 	  enc_lock(),
-	  active_topics() { }
+	  active_topics(),
+	  close(true)
+{
+	setup_static();
+}
 
 client::~client()
 {

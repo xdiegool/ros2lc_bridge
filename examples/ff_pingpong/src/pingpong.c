@@ -188,7 +188,7 @@ int main(int argc, char **argv)
     conn = firefly_transport_connection_udp_posix_new(
                     llp, ip, port,
                     FIREFLY_TRANSPORT_UDP_POSIX_DEFAULT_TIMEOUT);
-    res = firefly_connection_open(&ping_actions, NULL, event_queue, conn);
+    res = firefly_connection_open(&ping_actions, NULL, event_queue, conn, NULL);
     if (res < 0) fprintf(stderr, "PING ERROR: Open connection: %d.\n", res);
 
     pthread_mutex_lock(&lock);
@@ -205,12 +205,12 @@ int main(int argc, char **argv)
 
     /* Publish on ping. */
     proto_publish pub;
-    pub.topic = "S__ping";
+    pub.topic = "/ping";
     labcomm_encode_proto_publish(enc, &pub);
 
     /* Subscribe to pong. */
     proto_subscribe sub;
-    sub.topic = "S__pong";
+    sub.topic = "/pong";
     labcomm_encode_proto_subscribe(enc, &sub);
 
     unsigned int cnt = 0;
