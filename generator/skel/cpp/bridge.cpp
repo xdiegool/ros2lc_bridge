@@ -31,8 +31,6 @@ void chan_opened(struct firefly_channel *chan)
 
 	c->set_encoder(enc);
 	c->set_decoder(dec);
-
-	c->setup_services();
 }
 
 bool chan_recv(struct firefly_channel *chan)
@@ -60,6 +58,7 @@ bool chan_recv(struct firefly_channel *chan)
 
 	c->setup_imports(&types);
 	c->setup_exports(&types);
+	c->setup_services(&types);
 
 	firefly_channel_set_types(chan, types);
 
@@ -134,6 +133,7 @@ void conn_opened(struct firefly_connection *conn)
 				(void (*)(void *, void *)) publish_callback, c);
 		c->setup_imports(&types);
 		c->setup_exports(&types);
+		c->setup_services(&types);
 
 		/* Open a channel to the other side. */
 		firefly_channel_open_auto_restrict(conn, types);

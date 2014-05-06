@@ -588,13 +588,18 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                                                        lc_ns='lc_types'))
     clientf.write('\t' + end_fn)
 
-    clientf.write('\n\tvoid setup_services() {\n')
+    clientf.write('\n\tvoid setup_services(struct firefly_channel_types *types) {\n')
     for service in services:
         name = msg2id(service)
-        clientf.write('\t\tlabcomm_encoder_register_lc_types_{name}_RET(enc);\n'
-                      .format(name=name))
-        clientf.write('\t\tlabcomm_decoder_register_lc_types_{name}_PAR(dec, handle_srv_{name}, this);\n'
-                      .format(name=name))
+        clientf.write(('\t\tfirefly_channel_types_add_encoder_type(types,\n'
+                       '\t\t\tlabcomm_encoder_register_{lc_ns}_{name}_RET);\n')
+                       .format(lc_ns='lc_types',name=name))
+# '\t\tlabcomm_decoder_register_lc_types_{name}_PAR(dec, handle_srv_{name}, this);\n'
+
+        clientf.write(('\t\tfirefly_channel_types_add_decoder_type(types,\n'
+				       '(labcomm_decoder_register_function)labcomm_decoder_register_{lc_ns}_{name}_PAR,\n'
+				       '(void (*)(void *, void *)) handle_srv_{name}, this);\n')
+                       .format(lc_ns='lc_types',name=name))
     clientf.write('\t' + end_fn)
 
     # Write setup for static connections.
