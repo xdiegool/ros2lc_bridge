@@ -1099,6 +1099,7 @@ static_conns_decl = '''
 	int res;
 '''
 
+# TODO: Cast int to void * is impl. defined, find a better way.
 static_conns_content = '''
 	conn = firefly_transport_connection_udp_posix_new(llp, "{addr}", {port},
 					FIREFLY_TRANSPORT_UDP_POSIX_DEFAULT_TIMEOUT);
