@@ -49,7 +49,14 @@ void init_signatures(void)
 {{
 	init_proto__signatures();
 	init_lc_types__signatures();
-}}
+'''
+
+conf_content_init_sig = '''
+	init_{lc}__signatures();
+'''
+
+conf_content_end = '''
+}
 #endif
 '''
 
@@ -375,7 +382,7 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, conv_file,
         raise e
     return d
 
-def write_conf(f, bname, port):
+def write_conf(f, bname, port, custom):
     '''Writes the conf.h header file.
 
     :param f: the file to write the defines to.
@@ -384,6 +391,11 @@ def write_conf(f, bname, port):
     '''
     f.write(conf_content.format(pkg_name=bname, port=port,
                                 slash_substitute=SLASHSUB))
+    for c in custom:
+        lc = basename(c.lc_path).replace('.lc', '')
+        f.write(conf_content_init_sig.format(lc=lc))
+
+    f.write(conf_content_end)
 
 def in_custom(topic, conversions):
     '''When converting to or from a topic, check if there is a custom
@@ -1164,7 +1176,7 @@ def run(conf, ws, force):
     # C++ configuration
     (cfd, cnam) = mkstemp('.h')
     cfil = os.fdopen(cfd, 'w')
-    write_conf(cfil, cf.name, cf.port)
+    write_conf(cfil, cf.name, cf.port, cf.conversions)
     cfil.close()
 
     # C++ conversions
