@@ -18,7 +18,6 @@ void chan_opened(struct firefly_channel *chan)
 	struct labcomm_decoder *dec;
 	struct labcomm_encoder *enc;
 	client *c;
-	struct firefly_channel_types types = FIREFLY_CHANNEL_TYPES_INITIALIZER;
 
 	ROS_INFO("Channel opened");
 
