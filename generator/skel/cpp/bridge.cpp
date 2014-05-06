@@ -124,13 +124,6 @@ void conn_opened(struct firefly_connection *conn)
 
 	/* If old_ctx is != NULL, this is a static connection. */
 	if (old_ctx) {
-		/* Use firefly's safe way to register types. */
-		firefly_channel_types_add_decoder_type(&types,
-				(labcomm_decoder_register_function)labcomm_decoder_register_proto_subscribe,
-				(void (*)(void *, void *)) subscribe_callback, c);
-		firefly_channel_types_add_decoder_type(&types,
-				(labcomm_decoder_register_function)labcomm_decoder_register_proto_publish,
-				(void (*)(void *, void *)) publish_callback, c);
 		c->setup_imports(&types);
 		c->setup_exports(&types);
 		c->setup_services(&types);
