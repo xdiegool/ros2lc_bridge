@@ -210,17 +210,21 @@ typedef struct { byte __dummy__; } dummy; /* TODO: Remove when vx is merged into
         f.write('sample %s %s;\n' % (msg2id(rtyp).ljust(w), msg2id(rnam)))
 
 
-def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue, ecol=red):
+def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue,
+       ecol=red, nopipe=False):
     """Run a shell script in the specified way and make sure the user is aware of any errors."""
     if echo:
         print(col(cmd))
-    p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+
+    kwarg = {}
+    if not nopipe:
+        kwarg = {'stdout': sp.PIPE, 'stderr': sp.PIPE}
+
+    p = sp.Popen(cmd, shell=True, **kwarg)
     out, err = p.communicate()
-    if pr:
-        # sys.stdout.write(ocol(re_indent.sub(r'\t\1', out)))
-        # sys.stderr.write(ecol(re_indent.sub(r'\t\1', err)))
-        sys.stdout.write(ocol(out))
-        sys.stderr.write(ecol(err))
+    if pr and not nopipe:
+            sys.stdout.write(ocol(out))
+            sys.stderr.write(ecol(err))
     ok = not p.returncode # and not err
     if not ok and crit:
         if err and pr:          # Program printed its error properly.
@@ -228,5 +232,3 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue, ecol=red):
         else:                   # It did not.
             raise GeneratorException("Command failed: '%s': '%s'" % (cmd, err))
     return (ok, out)
-
-

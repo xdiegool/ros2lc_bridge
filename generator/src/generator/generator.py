@@ -25,6 +25,9 @@ if __name__ == '__main__':
     op.add_option('-l', '--lang', dest='lang', default='python',
                   help=('The language to generate. Supported options are'
                         '\'python\' or \'cpp\''))
+    op.add_option('-n', '--no-build', action="store_false", dest="build",
+                  default=True, help="Prevents the generator from running"
+                  " 'rosbuild' in the newly created package.")
     (opt, args) = op.parse_args(sys.argv)
     if not opt.conf:
         sys.stderr.write(red("Specify config file.\n"))
@@ -36,11 +39,15 @@ if __name__ == '__main__':
         elif opt.lang == 'cpp':
             d = cpp.run(opt.conf, opt.ws, opt.force)
         else:
-            raise GeneratorException('Unsupported language specified.')
+            sys.stderr.write(red('Choose a language\n'))
 
-        print("Bridge package created in %s" % d)
+        print(green("Bridge package created in %s" % d))
+        if opt.build:
+            utils.sh('cd %s && rosmake' % d, nopipe=True)
     except (GeneratorException, ConfigException, IOError) as e:
         sys.stderr.write(red(e) + '\n')
+        sys.exit(1)
     except ET.ParseError as e:
         sys.stderr.write(red("Parse error in config file '%s': %s\n" %
                              (opt.conf, e)))
+        sys.exit(1)
