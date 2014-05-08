@@ -1,17 +1,15 @@
 #! /usr/bin/env python
 
-
-from backends.utils import GeneratorException
-from backends.utils import PROJ_NAME
+from utils import PROJ_NAME
 import roslib; roslib.load_manifest(PROJ_NAME)
 import sys
 from optparse import OptionParser
-from config_file import ConfigException
 import xml.etree.ElementTree as ET
-from tcol import *
 
-# Import both python and C++ backends
-from backends import python,cpp,utils
+from tcol import *
+from config_file import ConfigException
+from utils import GeneratorException, sh
+from backends import python,cpp
 
 
 if __name__ == '__main__':
@@ -43,7 +41,7 @@ if __name__ == '__main__':
 
         print(green("Bridge package created in %s" % d))
         if opt.build:
-            utils.sh('cd %s && rosmake' % d, nopipe=True)
+            sh('cd %s && rosmake' % d, nopipe=True)
     except (GeneratorException, ConfigException, IOError) as e:
         sys.stderr.write(red(e) + '\n')
         sys.exit(1)
