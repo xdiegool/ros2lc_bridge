@@ -5,6 +5,7 @@ import subprocess as sp
 from time import strftime
 import platform
 from tcol import *
+from collections import OrderedDict
 
 
 PROJ_NAME = 'generator'       # TODO: Is there an api for this?
@@ -232,3 +233,37 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue,
         else:                   # It did not.
             raise GeneratorException("Command failed: '%s': '%s'" % (cmd, err))
     return (ok, out)
+
+
+def resolve(cf):
+    # Topics
+    topics = get_types()        # name -> type
+    defs = OrderedDict()        # type -> definition
+    types = set(topics.itervalues())
+    while types:
+        t = types.pop()
+        defn = get_def(t)
+        defs[t] = defn
+        types |= get_nested(defn) - set(defs.keys())
+
+    # Services
+    services = get_srv_types()
+    service_defs = {}
+    for t in services.itervalues():
+        defn = get_srv_def(t)
+        service_defs[t] = defn
+        types |= get_nested(defn[0]) | get_nested(defn[1]) - set(defs.keys())
+    # types -= set(defs.keys())
+    while types:     # Services can include complex types. Resolve again.
+        t = types.pop()
+        defn = get_def(t)
+        defs[t] = defn
+        types |= get_nested(defn) - set(defs.keys())
+    del types
+
+    imports, exports = cf.assert_defined(list(topics))
+    services_used = {s: services[s] for s in
+                     cf.assert_defined_services(list(services))}
+    topics_types = { t: topics[t] for t in imports + exports }
+
+    return (imports, exports, topics_types, services_used, service_defs, topics, defs)

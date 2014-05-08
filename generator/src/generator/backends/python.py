@@ -116,38 +116,7 @@ CONV        = {conv}
 def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
-
-    # topic, service with a common base class would be prettier.
-
-    # Topics
-    topics = get_types()        # name -> type
-    defs = OrderedDict()        # type -> definition
-    types = set(topics.itervalues())
-    while types:
-        t = types.pop()
-        defn = get_def(t)
-        defs[t] = defn
-        types |= get_nested(defn) - set(defs.keys())
-
-    # Services
-    services = get_srv_types()
-    service_defs = {}
-    for t in services.itervalues():
-        defn = get_srv_def(t)
-        service_defs[t] = defn
-        types |= get_nested(defn[0]) | get_nested(defn[1]) - set(defs.keys())
-    # types -= set(defs.keys())
-    while types:     # Services can include complex types. Resolve again.
-        t = types.pop()
-        defn = get_def(t)
-        defs[t] = defn
-        types |= get_nested(defn) - set(defs.keys())
-    del types
-
-    imports, exports = cf.assert_defined(list(topics))
-    services_used = {s: services[s] for s in
-                     cf.assert_defined_services(list(services))}
-    topics_types = { t: topics[t] for t in imports + exports }
+    (imports, exports, topics_types, services_used, service_defs, topics, defs) = resolve(cf)
 
     (cfd, cnam) = mkstemp('.xml')
     cfil = os.fdopen(cfd, 'w')

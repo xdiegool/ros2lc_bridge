@@ -4,6 +4,8 @@ ifeq ($(USER),erik)
 	ROSWS=~/src
 endif
 
+LABCOMMC=$(LABCOMM)/compiler/labComm.jar
+
 .PHONY: lc
 lc:
 	cp $(ROSWS)/test_bridge/lc/lc_types.lc lc/ # Generated stuff.
