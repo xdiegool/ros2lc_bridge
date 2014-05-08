@@ -81,7 +81,7 @@ def get_def(tnam):
     return defs_cache[tnam]
 
 
-srv_defs_cache = {}
+srv_defs_cache = {}             # FIXME: Ugly...
 def get_srv_def(snam):
     """Invoke a ROS utility to get a service type definition."""
     if snam in srv_defs_cache:
@@ -106,10 +106,9 @@ def get_nested(defn):
     return nested
 
 
-def get_srv_types():
-    slist = sh('rosservice list')[1]
+def get_srv_types(slist):
     services = {}
-    for sname in slist.strip().split('\n'):
+    for sname in slist:
         stype = sh('rosservice type %s' % sname)[1]
         services[sname] = stype.strip()
     return services
@@ -239,7 +238,9 @@ def resolve(cf):
     # Topics
     topics = get_types()        # name -> type
     defs = OrderedDict()        # type -> definition
-    types = set(topics.itervalues())
+    types = set()
+    for topic in cf.imports + cf.exports:
+        types.add(topics[topic])
     while types:
         t = types.pop()
         defn = get_def(t)
@@ -247,7 +248,7 @@ def resolve(cf):
         types |= get_nested(defn) - set(defs.keys())
 
     # Services
-    services = get_srv_types()
+    services = get_srv_types(cf.services)
     service_defs = {}
     for t in services.itervalues():
         defn = get_srv_def(t)
