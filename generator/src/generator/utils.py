@@ -288,4 +288,4 @@ def resolve(cf):
         deps.add(dep[:dep.index('/')])
 
     # TODO: This is still a bit horrible. Refac more.
-    return (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services, tnam, deps)
+    return (imports, exports, topics_types, services_used, service_defs, tnam, deps)
