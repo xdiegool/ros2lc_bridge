@@ -1,4 +1,5 @@
 BR:=$(shell rospack find service_bridge)
+LABCOMMC=$(LABCOMM)/compiler/labComm.jar
 
 .PHONY: lc build_bridge
 

@@ -1141,7 +1141,7 @@ def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
 
-    (imports, exports, topics_types, services_used, service_defs, topics, defs) = resolve(cf)
+    (imports, exports, topics_types, services_used, service_defs, topics, defs, services) = resolve(cf)
 
     # C++ configuration
     (cfd, cnam) = mkstemp('.h')

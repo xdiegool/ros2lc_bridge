@@ -70,7 +70,7 @@ if __name__ == '__main__':
     op = OptionParser()
     op.add_option('-p', '--port', dest='port', default=7357, type='int',
                   help='The port to connect to.')
-    op.add_option('-i', '--iterations', dest='iterations', default=1000, type='int',
+    op.add_option('-i', '--iterations', dest='iterations', default=100, type='int',
                   help='How many iterations to run.')
     (opt, args) = op.parse_args(sys.argv)
     if not len(args) == 3:
