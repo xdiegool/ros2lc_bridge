@@ -63,15 +63,21 @@ def msg2id(name):
     return name.replace('/', SLASHSUB)
 
 
-def get_types():
+def get_topic_types(tlist):
     """Query the master about topics and their types."""
     master = Master('/' + PROJ_NAME)
     ttdict = dict(master.getTopicTypes())
-    return ttdict
+    want = set(tlist)
+    have = set(ttdict.keys())
+    missing = want - have
+    if missing:
+        raise GeneratorException("Unknown topics(s): %s" % ', '.join(missing))
+
+    return {to: ttdict[to] for to in (set(ttdict.keys()) & set(tlist))}
 
 
 defs_cache = {}
-def get_def(tnam):
+def get_msg_def(tnam):
     """Invoke the ros utility which returns the message type definitions."""
     if tnam in defs_cache:
         return defs_cache[tnam]
@@ -83,7 +89,7 @@ def get_def(tnam):
     return defs_cache[tnam]
 
 
-srv_defs_cache = {}             # FIXME: Ugly...
+srv_defs_cache = {}
 def get_srv_def(snam):
     """Invoke a ROS utility to get a service type definition."""
     if snam in srv_defs_cache:
@@ -110,9 +116,15 @@ def get_nested(defn):
 
 def get_srv_types(slist):
     services = {}
+    missing = set()
     for sname in slist:
-        stype = sh('rosservice type %s' % sname)[1]
-        services[sname] = stype.strip()
+        ok, stype = sh('rosservice type %s' % sname, crit=False)
+        if ok:
+            services[sname] = stype.strip()
+        else:
+            missing.add(sname)
+    if missing:
+        raise GeneratorException("Unknown service(s): %s" % ', '.join(missing))
     return services
 
 
@@ -238,61 +250,32 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue,
 
 
 def resolve(cf):
-    # Topics
-    topics = get_types()        # name -> type
-    defs = OrderedDict()        # type -> definition
+    topic_types = get_topic_types(cf.imports + cf.exports) # tname -> msg type
+    service_types = get_srv_types(cf.services)             # sname -> srv type
+
     types = set()
-    for topic in cf.imports + cf.exports:
-        types.add(topics[topic])
+    msg_defs = OrderedDict()                               # msg type -> def
+    srv_defs = {}                                          # srv type -> def
+    for t in service_types.itervalues():
+        defn = get_srv_def(t)
+        srv_defs[t] = defn
+        types |= get_nested(defn[0]) | get_nested(defn[1]) - set(msg_defs.keys())
+    for msg_type in topic_types.itervalues():
+        types.add(msg_type)
+
     while types:
         t = types.pop()
-        defn = get_def(t)
-        defs[t] = defn
-        types |= get_nested(defn) - set(defs.keys())
+        defn = get_msg_def(t)
+        msg_defs[t] = defn
+        types |= get_nested(defn) - set(msg_defs.keys())
 
-    # Services
-    services = get_srv_types(cf.services)
-    service_defs = {}
-    for t in services.itervalues():
-        defn = get_srv_def(t)
-        service_defs[t] = defn
-        types |= get_nested(defn[0]) | get_nested(defn[1]) - set(defs.keys())
-    # types -= set(defs.keys())
-    while types:     # Services can include complex types. Resolve again.
-        t = types.pop()
-        defn = get_def(t)
-        defs[t] = defn
-        types |= get_nested(defn) - set(defs.keys())
-    del types
-
-    imports, exports = cf.assert_defined(list(topics))
-    service_types = {s: services[s] for s in
-                     cf.assert_defined_services(list(services))}
-    topics_types = { t: topics[t] for t in imports + exports }
-
-    req_topics = {}
-    for t in exports + imports:
-        req_topics[t] = topics[t]
-
-    req_services = {}
-    for s in service_types:
-        req_services[s] = services[s]
-
-    (tfd, tnam) = mkstemp('.lc')
+    (tfd, tmp_lc_name) = mkstemp('.lc')
     tfil = os.fdopen(tfd, 'w')
-    write_lc(req_topics, defs, req_services, service_defs, tfil)
+    write_lc(topic_types, msg_defs, service_types, srv_defs, tfil)
     tfil.close()
 
-    union = dict(req_topics.items() + req_services.items())
     deps = set()
-    for dep in union.itervalues():
-        deps.add(dep[:dep.index('/')])
+    for type_str in topic_types.values() + service_types.values():
+        deps.add(type_str[:type_str.index('/')])
 
-    # imports: List of published topic names.
-    # exports: List of subscribed topic names.
-    # topics_types: Dict, topic name -> msg type name
-    # services_used: Dict, service name -> srv type name
-    # service_defs: Dict, srv type name -> (req. type, resp. type)
-    # tnam: Name of temporary lc-file.
-    # deps: List of names of ROS packages which we depend on.
-    return (imports, exports, topics_types, service_types, service_defs, tnam, deps)
+    return (topic_types, service_types, srv_defs, tmp_lc_name, deps)

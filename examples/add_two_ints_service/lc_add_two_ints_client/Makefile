@@ -5,6 +5,7 @@ all: lc
 
 .PHONY: lc
 lc:
+	mkdir -p lc
 	cp $(BR)/lc/*.lc lc/
 	java -jar $(LABCOMMC) --python=src/lc_types.py lc/lc_types.lc
 	java -jar $(LABCOMMC) --python=src/proto.py    lc/proto.lc

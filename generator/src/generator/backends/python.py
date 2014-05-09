@@ -114,12 +114,12 @@ CONV        = {conv}
 def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
-    (imports, exports, topics_types, services_used, _, tnam, deps) = resolve(cf)
+    (topics_types, services_used, _, tnam, deps) = resolve(cf)
 
     (cfd, cnam) = mkstemp('.py')
     cfil = os.fdopen(cfd, 'w')
     write_conf(cfil, cf.name, cf.port,
-               exports, imports, topics_types,
+               cf.exports, cf.imports, topics_types,
                services_used, cf.static, cf.conversions)
     cfil.close()
 

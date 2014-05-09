@@ -802,7 +802,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
             write_custom_out(convf, topic, True, i, custom)
         else:
             convf.write(subscriber_type_def.format(ros_name=topic,topic_name=topic_name))
-            free_list = convert_type(convf, get_def(topic_type), 'to_lc',
+            free_list = convert_type(convf, get_msg_def(topic_type), 'to_lc',
                                      lc_ptr=False, ros_ptr=True, ros_varname='msg',
                                      lc_varname='conv')
             write_send(convf, topic, name='&conv')
@@ -827,7 +827,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                                                       lc_ns=lc_ns))
                 write_custom_out(convf, s, False, i, custom)
         else:
-            definition = get_def(topics_types[topic])
+            definition = get_msg_def(topics_types[topic])
             cpp_type = topics_types[topic].replace('/', '::')
             name = msg2id(topic)
             convf.write(lc2ros_cb_fn_begin.format(lc_ns='lc_types',
@@ -993,7 +993,7 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         elif typ == 'time' or typ == 'duraiton':
             write_time_duration(f, conv_map, rosvar, lcvar, name, True)
         elif len(get_nested(typ)) > 0:
-            convert_type(f, get_def(clean_type), direction, ros_varname=rosvar,
+            convert_type(f, get_msg_def(clean_type), direction, ros_varname=rosvar,
                          lc_varname=lcvar, prefix=name, lc_ptr=lc_ptr,
                          ros_ptr=ros_ptr, in_array=True)
         else:
@@ -1016,7 +1016,7 @@ def convert_type(f, definition, direction, ros_varname = '', lc_varname = '',
         if prefix:
             name = prefix + '.' + name
         if len(get_nested(typ)) > 0 and '[]' not in typ: # non-primitive type, recurse
-            free_list += convert_type(f, get_def(clean_type), direction,
+            free_list += convert_type(f, get_msg_def(clean_type), direction,
                                       ros_varname=ros_varname,
                                       lc_varname=lc_varname,
                                       lc_ptr=lc_ptr, ros_ptr=ros_ptr,
@@ -1116,7 +1116,7 @@ def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
 
-    (imports, exports, topics_types, service_types, service_defs, tnam, deps) = resolve(cf)
+    (topics_types, service_types, service_defs, tnam, deps) = resolve(cf)
 
     # C++ configuration
     (cfd, cnam) = mkstemp('.h')
@@ -1130,7 +1130,7 @@ def run(conf, ws, force):
     clientfil = os.fdopen(clientfd, 'w')
     convfil = os.fdopen(convfd, 'w')
     write_conv(clientfil, convfil, cf.name,
-               imports, exports, topics_types,
+               cf.imports, cf.exports, topics_types,
                service_types, service_defs, cf.conversions, cf.static)
     convfil.close()
 

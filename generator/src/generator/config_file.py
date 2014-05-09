@@ -12,7 +12,6 @@ def _bn(name):
     return splitext(basename(name))[0]
 
 
-
 class Conversion(object):
     def __init__(self):
         self.lc_path = None
@@ -130,30 +129,6 @@ class ConfigFile(object):
                                         conv.sample_dsts.append(e)
                         self.conversions.append(conv)
 
-
-    def assert_defined(self, known_topics):
-        sall  = set(known_topics)
-        unknown_imports = set(self.imports) - sall
-        unknown_exports = set(self.exports) - sall
-        if unknown_imports or unknown_exports:
-            raise ConfigException("Config contains unknown topics(s): %s"
-                                  % ','.join(unknown_imports |
-                                             unknown_exports))
-        if self.export_all:
-            topics_export = list(known_topics)
-        else:
-            topics_export = list(self.exports)
-        topics_import = list(self.imports)
-        return (topics_import, topics_export)
-
-    def assert_defined_services(self, known_services):
-        uk = set(self.services) - set(known_services)
-        if uk:
-            raise ConfigException("Config contains unknown service(s): %s" % ','.join(uk))
-        if self.allow_all_services:
-            return known_services
-        else:
-            return self.services
 
     def lc_files(self):
         b = dirname(self.fnam)  # Paths are relative to config.
