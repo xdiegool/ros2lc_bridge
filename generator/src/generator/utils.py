@@ -6,6 +6,8 @@ from time import strftime
 import platform
 from tcol import *
 from collections import OrderedDict
+from tempfile import mkstemp
+import os
 
 
 PROJ_NAME = 'generator'       # TODO: Is there an api for this?
@@ -275,5 +277,15 @@ def resolve(cf):
     for s in services_used:
         req_services[s] = services[s]
 
+    (tfd, tnam) = mkstemp('.lc')
+    tfil = os.fdopen(tfd, 'w')
+    write_lc(req_topics, defs, req_services, service_defs, tfil)
+    tfil.close()
+
+    union = dict(req_topics.items() + req_services.items())
+    deps = set()
+    for dep in union.itervalues():
+        deps.add(dep[:dep.index('/')])
+
     # TODO: This is still a bit horrible. Refac more.
-    return (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services)
+    return (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services, tnam, deps)

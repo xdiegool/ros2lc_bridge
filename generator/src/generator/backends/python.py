@@ -1,6 +1,4 @@
-import os
 import stat
-from tempfile import mkstemp
 import shutil
 from config_file import *
 from collections import OrderedDict
@@ -116,7 +114,7 @@ CONV        = {conv}
 def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
-    (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services) = resolve(cf)
+    (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services, tnam, deps) = resolve(cf)
 
     (cfd, cnam) = mkstemp('.xml')
     cfil = os.fdopen(cfd, 'w')
@@ -124,16 +122,6 @@ def run(conf, ws, force):
                exports, imports, topics_types,
                services_used, cf.static, cf.conversions)
     cfil.close()
-
-    (tfd, tnam) = mkstemp('.lc')
-    tfil = os.fdopen(tfd, 'w')
-    write_lc(req_topics, defs, req_services, service_defs, tfil)
-    tfil.close()
-
-    union = dict(req_topics.items() + req_services.items())
-    deps = set()
-    for dep in union.itervalues():
-        deps.add(dep[:dep.index('/')])
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam,
                       cf.lc_files(), cf.py_files())

@@ -1141,7 +1141,7 @@ def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
 
-    (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services) = resolve(cf)
+    (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services, tnam, deps) = resolve(cf)
 
     # C++ configuration
     (cfd, cnam) = mkstemp('.h')
@@ -1164,16 +1164,6 @@ def run(conf, ws, force):
     statfil = os.fdopen(statfd, 'w')
     write_statics(statfil, cf.name, cf.static)
     statfil.close()
-
-    (tfd, tnam) = mkstemp('.lc')
-    tfil = os.fdopen(tfd, 'w')
-    write_lc(req_topics, defs, req_services, service_defs, tfil)
-    tfil.close()
-
-    union = dict(req_topics.items() + req_services.items())
-    deps = set()
-    for dep in union.itervalues():
-        deps.add(dep[:dep.index('/')])
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam, convnam, clientnam,
                       statnam, cf.lc_files(), cf.py_files(), cf.conversions)
