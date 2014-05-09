@@ -649,18 +649,6 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         convert_type(clientf, definition[0], 'to_ros', lc_ptr=False,
                      ros_ptr=False, ros_varname='msg->request', lc_varname='s')
         clientf.write(service_call_start_thread.format(lc_name=lc_name))
-        # clientf.write('}\n')
-
-    for conv in conversions:
-        print 'lc path:       ', conv.lc_path
-        print 'py path:       ', conv.py_path
-        print 'conv func:     ', conv.py_func
-        print 'trig policy:   ', conv.trig_policy
-        print 'source samples:', conv.sample_srcs
-        print 'source topics: ', conv.topic_srcs
-        print 'dest samples:  ', conv.sample_dsts
-        print 'dest topics:   ', conv.topic_dsts
-        print ''
 
     def write_custom_out(f, topicsample, is_topic, num, custom):
         lc_ns = extract_lc_ns(custom.lc_path, '')

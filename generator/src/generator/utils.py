@@ -199,6 +199,7 @@ typedef struct { byte __dummy__; } dummy; /* TODO: Remove when vx is merged into
     f.write('\n\n/* Service types: */\n')
     for (typ, defn) in service_defs.iteritems():
         convert_service_def(typ, defn, f)
+
     # Services
     f.write('\n/* Services: */\n')
     w = longest_id(services.itervalues()) + max(len(SRV_PAR_SUFFIX),
@@ -287,5 +288,11 @@ def resolve(cf):
     for dep in union.itervalues():
         deps.add(dep[:dep.index('/')])
 
-    # TODO: This is still a bit horrible. Refac more.
+    # imports: List of published topic names.
+    # exports: List of subscribed topic names.
+    # topics_types: Dict, topic name -> msg type name
+    # services_used: Dict, service name -> srv type name
+    # service_defs: Dict, srv type name -> (req. type, resp. type)
+    # tnam: Name of temporary lc-file.
+    # deps: List of names of ROS packages which we depend on.
     return (imports, exports, topics_types, services_used, service_defs, tnam, deps)
