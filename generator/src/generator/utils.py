@@ -266,7 +266,7 @@ def resolve(cf):
     del types
 
     imports, exports = cf.assert_defined(list(topics))
-    services_used = {s: services[s] for s in
+    service_types = {s: services[s] for s in
                      cf.assert_defined_services(list(services))}
     topics_types = { t: topics[t] for t in imports + exports }
 
@@ -275,7 +275,7 @@ def resolve(cf):
         req_topics[t] = topics[t]
 
     req_services = {}
-    for s in services_used:
+    for s in service_types:
         req_services[s] = services[s]
 
     (tfd, tnam) = mkstemp('.lc')
@@ -295,4 +295,4 @@ def resolve(cf):
     # service_defs: Dict, srv type name -> (req. type, resp. type)
     # tnam: Name of temporary lc-file.
     # deps: List of names of ROS packages which we depend on.
-    return (imports, exports, topics_types, services_used, service_defs, tnam, deps)
+    return (imports, exports, topics_types, service_types, service_defs, tnam, deps)

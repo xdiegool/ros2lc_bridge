@@ -411,7 +411,7 @@ def in_custom(topic, conversions):
 
 
 def write_conv(clientf, convf, pkg_name, imports, exports,
-               topics_types, services, service_defs, conversions, stat_conns):
+               topics_types, service_types, service_defs, conversions, stat_conns):
     '''Writes the definition of the client class as well as conversion code.
 
     The client class handles subscribing to and publishing on topics as well as
@@ -423,8 +423,8 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     :param pkg_name: string with the name of the package.
     :param imports: a list topics imported into the ROS system.
     :param exports: a list topics exported from the ROS system.
-    :param topics_types: a dict of topic names => topic types.
-    :param services: a list of services that should be exported.
+    :param topics_types: a dict of topic names => msg types.
+    :param service_types: a dict of service names => srv types.
     :param service_defs: a dict of a service=>type mappings
     :param conversions: a list of conversions specified by the user (obsolete in C++)
     '''
@@ -461,8 +461,8 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     write_once(clientf, client_class_include, 'topic_type', tmp)
 
     # Write one include per service type needed.
-    tmp = [get_srv_type(s) for s in services]
-    write_once(clientf, '#include "{name}.h"\n', 'name', tmp)
+    write_once(clientf, '#include "{name}.h"\n', 'name',
+               service_types.itervalues())
 
     # Include custom conversion code.
     tmp = [basename(c.py_path) for c in conversions]
@@ -490,7 +490,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     del decl_written
 
     # Write one function declaration (LC callback) per service.
-    for service in services:
+    for service in service_types:
         lc_name = msg2id(service)
         lc_par_type = lc_name + SRV_PAR_SUFFIX
         clientf.write(client_service_callback_def.format(lc_name=lc_name,
@@ -536,10 +536,10 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         topic_type = topics_types[topic].replace('/', '::')
         clientf.write(client_ros_publisher_member.format(topic_name=topic_name,
                                                          topic_type=topic_type))
-    for service in services:
+    for service, srv_type in service_types.iteritems():
         lc_name = msg2id(service)
         lc_ret_type = lc_name + SRV_RET_SUFFIX
-        cpp_type = get_srv_type(service).replace('/', '::')
+        cpp_type = srv_type.replace('/', '::')
         clientf.write(client_ros_service_members.format(srv_name=lc_name,
                                                         cpp_type=cpp_type))
 
@@ -600,7 +600,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     clientf.write('\t' + end_fn)
 
     clientf.write('\n\tvoid setup_services(struct firefly_channel_types *types) {\n')
-    for service in services:
+    for service in service_types:
         name = msg2id(service)
         clientf.write(('\t\tfirefly_channel_types_add_encoder_type(types,\n'
                        '\t\t\tlabcomm_encoder_register_{lc_ns}_{name}_RET);\n')
@@ -635,17 +635,17 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     clientf.write(class_end)
 
     # Write LC callbacks for services.
-    for service in services:
+    for service, srv_type in service_types.iteritems():
         lc_name = msg2id(service)
         lc_par_type = lc_name + SRV_PAR_SUFFIX
         lc_ret_type = lc_name + SRV_RET_SUFFIX
-        cpp_type = get_srv_type(service).replace('/', '::')
+        cpp_type = srv_type.replace('/', '::')
         clientf.write(service_call_func.format(lc_name=lc_name,
                                                lc_par_type=lc_par_type,
                                                lc_ret_type=lc_ret_type,
                                                cpp_type=cpp_type,
                                                ros_name=service))
-        definition = service_defs[get_srv_type(service)]
+        definition = service_defs[srv_type]
         convert_type(clientf, definition[0], 'to_ros', lc_ptr=False,
                      ros_ptr=False, ros_varname='msg->request', lc_varname='s')
         clientf.write(service_call_start_thread.format(lc_name=lc_name))
@@ -839,8 +839,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
             convf.write(lc2ros_cb_fn_end.format(topic_name=name))
 
     # Write LabComm callbacks that converts to ROS msgs.
-    for service in services:
-        ros_type = get_srv_type(service)
+    for service, ros_type in service_types.iteritems():
         definition = service_defs[ros_type]
         lc_name = msg2id(service)
         lc_par_type = lc_name + SRV_PAR_SUFFIX
@@ -1113,23 +1112,11 @@ def write_statics(f, pkg_name, static_connections):
     f.write(end_fn)
 
 
-srv_type_cache = {}
-def get_srv_type(srv):
-    if srv in srv_type_cache:
-        return srv_type_cache[srv]
-    typ = sh('rosservice type %s' % srv)
-    if typ[0]:
-        srv_type_cache[srv] = typ[1].strip()
-        return srv_type_cache[srv]
-    else:
-        return None
-
-
 def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
 
-    (imports, exports, topics_types, services_used, service_defs, tnam, deps) = resolve(cf)
+    (imports, exports, topics_types, service_types, service_defs, tnam, deps) = resolve(cf)
 
     # C++ configuration
     (cfd, cnam) = mkstemp('.h')
@@ -1144,7 +1131,7 @@ def run(conf, ws, force):
     convfil = os.fdopen(convfd, 'w')
     write_conv(clientfil, convfil, cf.name,
                imports, exports, topics_types,
-               services_used, service_defs, cf.conversions, cf.static)
+               service_types, service_defs, cf.conversions, cf.static)
     convfil.close()
 
     # C++ static connections.
