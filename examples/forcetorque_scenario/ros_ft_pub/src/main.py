@@ -1,8 +1,9 @@
 #!/usr/bin/env python
+
 import roslib; roslib.load_manifest('ros_ft_pub')
 import rospy
-#from std_msgs.msg import String
 from ros_ft_pub.msg import forcetorque
+
 
 def pub():
     pub = rospy.Publisher('force_torque', forcetorque)
@@ -17,7 +18,6 @@ def pub():
         ft.torque.y = cnt + 1
         ft.torque.z = cnt
         rospy.loginfo("\n%s", ft)
-
         pub.publish(ft)
         cnt += 1
         rospy.sleep(1.0)

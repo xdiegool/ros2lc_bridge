@@ -1,0 +1,8 @@
+LABCOMMC=$(LABCOMM)/compiler/labComm.jar
+PKG=$(shell rospack find pingpong_bridge)
+
+.PHONY: lc
+lc:
+	cp $(PKG)/lc/* lc/
+	java -jar $(LABCOMMC) --python=src/lc_types.py $(PKG)/lc/lc_types.lc
+	java -jar $(LABCOMMC) --python=src/proto.py    $(PKG)/lc/proto.lc

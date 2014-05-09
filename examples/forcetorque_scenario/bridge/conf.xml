@@ -1,4 +1,4 @@
-<bridge name="export_topics_plus_ftpt" port="7357">
+<bridge name="ft_bridge" port="7357">
   <exports>
     <topic name="/force_torque" />
   </exports>
@@ -6,7 +6,7 @@
   <conversions>
 	<conversion>
 	  <lc path="lc/ft.lc" />
-	  <py path="conv/ft_conv.c" function="convert_ft" />
+	  <py path="conv/ft_conv.py" function="convert_ft" />
 	  <sources>
 		<topic name="/force_torque" />
 	  </sources>

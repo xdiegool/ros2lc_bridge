@@ -1,29 +1,24 @@
-.PHONY: lc clean
+PKG=$(shell rospack find ft_bridge)
+LABCOMMC=$(LABCOMM)/compiler/labComm.jar
 
-USER := $(shell whoami)
-ROSWS=~/src/ros_ws
-ifeq ($(USER),erik)
-	ROSWS=~/src
-endif
-
-LC_GEN_DIR=./src/lc_gen
-
+.PHONY: lc
 lc:
-	mkdir -p $(LC_GEN_DIR)
-	touch  $(LC_GEN_DIR)/__init__.py
-	java -jar $(LABCOMMC) --python=$(LC_GEN_DIR)/ft.py lc/ft.lc
-	java -jar $(LABCOMMC) --python=$(LC_GEN_DIR)/proto.py $(ROSWS)/ros2lc_bridge/generator/skel/lc/proto.lc
+	java -jar $(LABCOMMC) --python=src/ft.py $(PKG)/lc/ft.lc
+	java -jar $(LABCOMMC) --python=src/proto.py $(PKG)/lc/proto.lc
 
+.PHONY: genbridge
 genbridge:
 	# Make sure the ros node is running.
 	rosrun generator_c generator.py -c conf.xml -f
 
+.PHONY: sub_force
 sub_force:
-	src/dumb_subscriber.py S__force_pt
+	src/dumb_subscriber.py /force_pt
 
+.PHONY: sub_torque
 sub_torque:
-	src/dumb_subscriber.py S__torque_pt
+	src/dumb_subscriber.py /torque_pt
 
-
+.PHONY: clean
 clean:
 	rm -fr $(LC_GEN_DIR)

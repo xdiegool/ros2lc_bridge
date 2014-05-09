@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # TODO: Rewrite as services when impl.
 
-
 import sys
 import socket
 import labcomm
-from lc_gen import proto, ft
+import proto
+import ft
 
 def run(topic):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -16,7 +16,6 @@ def run(topic):
     d = labcomm.Decoder(labcomm.StreamReader(f))
 
     e.add_decl(proto.subscribe.signature)
-    # e.add_decl(user_type.force.signature)
     sub = proto.subscribe()
     sub.topic = topic
     e.encode(sub, sub.signature)
