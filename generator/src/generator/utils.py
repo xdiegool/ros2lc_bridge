@@ -267,5 +267,13 @@ def resolve(cf):
                      cf.assert_defined_services(list(services))}
     topics_types = { t: topics[t] for t in imports + exports }
 
+    req_topics = {}
+    for t in exports + imports:
+        req_topics[t] = topics[t]
+
+    req_services = {}
+    for s in services_used:
+        req_services[s] = services[s]
+
     # TODO: This is still a bit horrible. Refac more.
-    return (imports, exports, topics_types, services_used, service_defs, topics, defs, services)
+    return (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services)

@@ -116,7 +116,7 @@ CONV        = {conv}
 def run(conf, ws, force):
     """Run the tool and put a generated package in ws."""
     cf = ConfigFile(conf)
-    (imports, exports, topics_types, services_used, service_defs, topics, defs, services) = resolve(cf)
+    (imports, exports, topics_types, services_used, service_defs, req_topics, defs, req_services) = resolve(cf)
 
     (cfd, cnam) = mkstemp('.xml')
     cfil = os.fdopen(cfd, 'w')
@@ -124,14 +124,6 @@ def run(conf, ws, force):
                exports, imports, topics_types,
                services_used, cf.static, cf.conversions)
     cfil.close()
-
-    req_topics = {}
-    for t in exports + imports:
-        req_topics[t] = topics[t]
-
-    req_services = {}
-    for s in services_used:
-        req_services[s] = services[s]
 
     (tfd, tnam) = mkstemp('.lc')
     tfil = os.fdopen(tfd, 'w')
@@ -145,4 +137,3 @@ def run(conf, ws, force):
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam,
                       cf.lc_files(), cf.py_files())
-
