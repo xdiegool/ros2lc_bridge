@@ -12,9 +12,6 @@ if __name__ == '__main__':
     assert cf.export_all
     assert cf.exports == []
     assert cf.imports == ['/rosout', '/ping']
-    i, o = cf.assert_defined(['/rosout', '/ping', '/ta', '/tb'])
-    assert set(i) == set(['/ta', '/tb', '/rosout', '/ping'])
-    assert o == ['/rosout', '/ping']
 
     # Assertions for static config stuff
     addr1 = '192.168.1.101:1337'
