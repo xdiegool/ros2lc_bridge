@@ -83,16 +83,19 @@ class ConfigFile(object):
                         self.services.append(gchild.attrib['name'])
             elif child.tag == 'static-connections':
                 for gchild in child:
-                    addr = gchild.attrib['addr']
-                    self.static[addr] = {
+                    if gchild.tag == 'target':
+                        addr = gchild.attrib['addr']
+                        self.static[addr] = {
                             'subscribe': [],
                             'publish': []
-                    }
-                    for ggchild in gchild:
-                        if ggchild.tag == 'subscribe':
-                            self.static[addr]['subscribe'].append(ggchild.attrib['name'])
-                        elif ggchild.tag == 'publish':
-                            self.static[addr]['publish'].append(ggchild.attrib['name'])
+                            }
+                        for ggchild in gchild:
+                            if ggchild.tag == 'subscribe':
+                                self.static[addr]['subscribe'].append(
+                                    ggchild.attrib['name'])
+                            elif ggchild.tag == 'publish':
+                                self.static[addr]['publish'].append(
+                                    ggchild.attrib['name'])
             elif child.tag == 'conversions':
                 for gchild in child:
                     if gchild.tag == 'conversion':
