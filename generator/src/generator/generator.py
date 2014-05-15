@@ -37,7 +37,7 @@ if __name__ == '__main__':
         elif opt.lang == 'cpp':
             d = cpp.run(opt.conf, opt.ws, opt.force)
         else:
-            sys.stderr.write(red('Choose a language\n'))
+            raise GeneratorException('Choose a language (use -h for help).')
 
         print(green("Bridge package created in %s" % d))
         if opt.build:
