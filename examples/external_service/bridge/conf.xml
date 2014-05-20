@@ -1,0 +1,10 @@
+<bridge name="ext_service_bridge" port="7357">
+  <imports>
+    <service name="/ext_service" file="../lc_service_provider/srv/ExtServer.srv" />
+  </imports>
+
+  <static-connections>
+    <target addr="127.0.0.1:1337">
+    </target>
+  </static-connections>
+</bridge>

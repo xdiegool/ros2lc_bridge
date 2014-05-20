@@ -71,16 +71,33 @@ class ConfigFile(object):
                         self.export_all = True
                     elif gchild.tag == 'topic':
                         self.exports.append(gchild.attrib['name'])
+                    elif gchild.tag == 'service':
+                        srv = {
+                            'name': gchild.attrib['name'],
+                            'direction': 'export'
+                        }
+                        self.services.append(srv)
             elif child.tag == 'imports':
                 for gchild in child:
                     if gchild.tag == 'topic':
                         self.imports.append(gchild.attrib['name'])
-            elif child.tag == 'services':
+                    elif gchild.tag == 'service':
+                        srv = {
+                            'name': gchild.attrib['name'],
+                            'file': gchild.attrib['file'],
+                            'direction': 'import'
+                        }
+                        self.services.append(srv)
+            elif child.tag == 'services': # TODO: Deprecated, remove.
                 for gchild in child:
                     if gchild.tag == 'all':
                         self.allow_all_services = True
                     elif gchild.tag == 'service':
-                        self.services.append(gchild.attrib['name'])
+                        srv = {
+                            'name': gchild.attrib['name'],
+                            'direction': 'export'
+                        }
+                        self.services.append(srv)
             elif child.tag == 'static-connections':
                 for gchild in child:
                     if gchild.tag == 'target':

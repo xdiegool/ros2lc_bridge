@@ -90,18 +90,25 @@ def get_msg_def(tnam):
 
 
 srv_defs_cache = {}
-def get_srv_def(snam):
+def get_srv_def(srv):
     """Invoke a ROS utility to get a service type definition."""
-    if snam in srv_defs_cache:
-        return srv_defs_cache[snam]
-    ok, out = sh('rossrv show %s' % snam)
+    out = ''
+    stype = srv['type']
+    if stype in srv_defs_cache:
+        return srv_defs_cache[stype]
+    if srv['direction'] == 'export':
+        ok, out = sh('rossrv show %s' % stype)
+    else:
+        with open(srv['file'], 'r') as f:
+            for line in f:
+                out += line
     for r in cleanup:
         out = r.sub('', out)
     b = out.index('---')
     params  = out[:b].strip()
     retvals = out[b+3:].strip()
-    srv_defs_cache[snam] = (params, retvals)
-    return srv_defs_cache[snam]
+    srv_defs_cache[stype] = (params, retvals)
+    return srv_defs_cache[stype]
 
 
 def get_nested(defn):
@@ -117,12 +124,18 @@ def get_nested(defn):
 def get_srv_types(slist):
     services = {}
     missing = set()
-    for sname in slist:
-        ok, stype = sh('rosservice type %s' % sname, crit=False)
-        if ok:
-            services[sname] = stype.strip()
+    for srv in slist:
+        sname = srv['name']
+        if srv['direction'] == 'export':
+            ok, stype = sh('rosservice type %s' % sname, crit=False)
+            if ok:
+                srv['type'] = stype.strip()
+                services[sname] = srv
+            else:
+                missing.add(sname)
         else:
-            missing.add(sname)
+            srv['type'] = os.path.basename(srv['file']).replace('.srv', '')
+            services[sname] = srv
     if missing:
         raise GeneratorException("Unknown service(s): %s" % ', '.join(missing))
     return services
@@ -176,7 +189,10 @@ def convert_service_def(nam, defn, f):
 def longest_id(itr):
     maxlen = 0
     for name in itr:
-        maxlen = max(maxlen, len(msg2id(name)))
+        if type(name) == str:
+            maxlen = max(maxlen, len(msg2id(name)))
+        else:
+            maxlen = max(maxlen, len(msg2id(name['name'])))
     return maxlen
 
 
@@ -216,11 +232,11 @@ typedef struct { byte __dummy__; } dummy; /* TODO: Remove when vx is merged into
     f.write('\n/* Services: */\n')
     w = longest_id(services.itervalues()) + max(len(SRV_PAR_SUFFIX),
                                                 len(SRV_RET_SUFFIX))
-    for (service, typ) in services.iteritems():
-        atyp = typ + SRV_PAR_SUFFIX
-        rtyp = typ + SRV_RET_SUFFIX
-        anam = service + SRV_PAR_SUFFIX
-        rnam = service + SRV_RET_SUFFIX
+    for (name, srv) in services.iteritems():
+        atyp = srv['type'] + SRV_PAR_SUFFIX
+        rtyp = srv['type'] + SRV_RET_SUFFIX
+        anam = name + SRV_PAR_SUFFIX
+        rnam = name + SRV_RET_SUFFIX
         f.write('sample %s %s;\n' % (msg2id(atyp).ljust(w), msg2id(anam)))
         f.write('sample %s %s;\n' % (msg2id(rtyp).ljust(w), msg2id(rnam)))
 
@@ -258,7 +274,7 @@ def resolve(cf):
     srv_defs = {}                                          # srv type -> def
     for t in service_types.itervalues():
         defn = get_srv_def(t)
-        srv_defs[t] = defn
+        srv_defs[t['type']] = defn
         types |= get_nested(defn[0]) | get_nested(defn[1]) - set(msg_defs.keys())
     for msg_type in topic_types.itervalues():
         types.add(msg_type)
@@ -275,7 +291,13 @@ def resolve(cf):
     tfil.close()
 
     deps = set()
-    for type_str in topic_types.values() + service_types.values():
+    for type_str in topic_types.values():
         deps.add(type_str[:type_str.index('/')])
+
+    for srv in service_types.values():
+        if srv['direction'] == 'export':
+            typ = srv['type']
+            deps.add(typ[:typ.index('/')])
+
 
     return (topic_types, service_types, srv_defs, tmp_lc_name, deps)

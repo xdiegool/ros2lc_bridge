@@ -1,0 +1,16 @@
+<package>
+  <description brief="test_caller">
+
+     test_caller
+
+  </description>
+  <author>erik</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes="" />
+  <url>http://ros.org/wiki/test_caller</url>
+  <depend package="rospy" />
+  <depend package="ext_service_bridge" />
+
+</package>
+
+

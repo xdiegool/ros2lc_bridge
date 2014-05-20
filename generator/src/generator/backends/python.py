@@ -6,7 +6,7 @@ from collections import OrderedDict
 from utils import *
 
 
-def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
+def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy, msrv):
     """Create ROS package in the first dicectory in $ROS_PACKAGE_PATH, or /tmp/, unless explicitly specified."""
     if not ws:
         pkg_path = os.environ.get('ROS_PACKAGE_PATH')
@@ -26,6 +26,7 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
     sh('cd %s && roscreate-pkg %s %s' % (ws, name, depstr))
     try:
         lcdir = os.path.join(d, 'lc')
+        srvdir = os.path.join(d, 'srv')
         srcdir = os.path.join(d, 'src')
         skeldir = os.path.join(os.path.dirname(__file__), '..', '..', '..',
                                'skel')
@@ -66,6 +67,12 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
         for py in mpy:
             shutil.copy(py, srcdir)
 
+        # Copy any custom service files.
+        if len(msrv) > 0:
+            os.mkdir(srvdir)
+        for srv in msrv:
+            shutil.copy(srv, srvdir)
+
         os.chmod('%s/conf.py' % srcdir,
                  stat.S_IRUSR | stat.S_IWUSR |
                  stat.S_IRGRP | stat.S_IWGRP)
@@ -78,6 +85,10 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
         os.chmod('%s/main.py' % srcdir,
                  stat.S_IRUSR | stat.S_IXUSR |
                  stat.S_IRGRP | stat.S_IXGRP)
+
+        with open('%s/CMakeLists.txt' % d, 'a') as bf:
+            bf.write('rosbuild_gensrv()\n')
+
     except Exception as e:
         # sh('rm -fr ' + d)       # Clean up
         raise e
@@ -85,21 +96,21 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy):
 
 
 def write_conf(f, bname, port, exports, imports, topics, services,
-               static_conns, conversions):
+        static_conns, conversions):
     convs = []
     for conv in conversions:
         convs.append(conv.tuple_repr())
     f.write('''#!/usr/bin/env python
 
-PKG_NAME    = '{name}'
-PORT        = {port}
-SLASHSUB    = '{slsub}'
-EXPORTS     = {exports}
-IMPORTS     = {imports}
-TOPIC_TYPES = {t_t}
-SERVICES    = {srvs}
+PKG_NAME     = '{name}'
+PORT         = {port}
+SLASHSUB     = '{slsub}'
+EXPORTS      = {exports}
+IMPORTS      = {imports}
+TOPIC_TYPES  = {t_t}
+SERVICES     = {srvs}
 STATIC_CONNS = {stat_conns}
-CONV        = {conv}
+CONV         = {conv}
 '''.format(name=bname,
            exports=exports,
            imports=imports,
@@ -123,5 +134,10 @@ def run(conf, ws, force):
                services_used, cf.static, cf.conversions)
     cfil.close()
 
+    srv_files = []
+    for name, srv in services_used.iteritems():
+        if srv['direction'] == 'import':
+            srv_files.append(srv['file'])
+
     return create_pkg(ws, cf.name, deps, force, tnam, cnam,
-                      cf.lc_files(), cf.py_files())
+                      cf.lc_files(), cf.py_files(), srv_files)

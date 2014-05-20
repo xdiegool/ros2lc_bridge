@@ -9,15 +9,13 @@ import threading
 import lc_types
 import os
 
-# TODO: Move stuff to wrapper class.
-
-# TODO: Import renaming function.
 def msg2id(msg_name):
     return msg_name.replace('/', conf.SLASHSUB)
 
 
 def id2msg(msg_name):
     return msg_name.replace(conf.SLASHSUB, '/')
+
 
 # rospy.init_node(conf.PKG_NAME)
 
@@ -40,21 +38,32 @@ for topic in conf.IMPORTS + conf.EXPORTS:
 service_types_py = {} # Topic -> Python class
 services = {} # Topic -> ROS ServiceProxy
 slmap = {} # Topic -> LabComm class
-for srv,typ in conf.SERVICES.iteritems():
+for name,srv in conf.SERVICES.iteritems():
     # Save service type (Python)
-    pkg,subtyp = typ.split('/')
+    pkg = subtyp = ''
+    tmp = srv['type'].split('/')
+    if len(tmp) > 1:
+        pkg = tmp[0]
+        subtyp = tmp[1]
+    else:
+        pkg = conf.PKG_NAME
+        subtyp = tmp[0]
+
     tmp = __import__('%s.srv' % pkg, globals(), locals(), [subtyp], 0)
     cls = getattr(tmp, subtyp)
     globals()[subtyp] = cls
-    service_types_py[srv] = cls
+    service_types_py[name] = cls
 
     # Save the service proxy object
-    services[srv] = rospy.ServiceProxy(srv, service_types_py[srv])
+    if srv['direction'] == 'export':
+        services[name] = rospy.ServiceProxy(name, service_types_py[name])
+    else:
+        services[name] = None
 
     # Save the service parameter and return type (LabComm)
-    labcomm_par = getattr(lc_types, msg2id(typ) + '_PAR')
-    labcomm_ret = getattr(lc_types, msg2id(typ) + '_RET')
-    slmap[srv] = (labcomm_par, labcomm_ret)
+    labcomm_par = getattr(lc_types, msg2id(srv['type']) + '_PAR')
+    labcomm_ret = getattr(lc_types, msg2id(srv['type']) + '_RET')
+    slmap[name] = (labcomm_par, labcomm_ret)
 
 
 def get_from_module(mod, thing):
@@ -147,7 +156,7 @@ class Conversion(object):
         for s, pt in self.samples_out:
             print "proc. %s" % pt
             for sub in self.pseudotopic_subs.get(pt, ()):
-                sub.send_sample(vals[pt])
+                sub.send_sample(vals[pt], vals[pt].signature)
                 print "has sub"
 
     def register_sample_subscriber(self, pt, insn):
@@ -226,9 +235,9 @@ class LabCommBridge(object):
 class ServiceWorker(threading.Thread):
     """A worker thread that handles calling services."""
 
-    def __init__(self, srv_name, params, sign, callback, callback_data):
+    def __init__(self, srv, params, sign, callback, callback_data):
         super(ServiceWorker, self).__init__()
-        self.srv_name = srv_name
+        self.srv = srv
         self.params = params
         self.sign = sign
         self.callback = callback
@@ -240,12 +249,54 @@ class ServiceWorker(threading.Thread):
             if name == '__dummy__': # Ugly fix for labcomm weirdness.
                 continue
             args.append(getattr(self.params, name))
-        rospy.wait_for_service(self.srv_name)
+        rospy.wait_for_service(self.srv['name'])
 
-        res = services[self.srv_name](*args)
+        res = services[self.srv['name']](*args)
         self.callback(res, self.callback_data)
 
 
+class ServiceCallback(object):
+    """A callable class which should be passed as the callback function when
+    creating a new Service object. It is used to keep some state for the
+    function called as a service request comes in. It forwards the request via
+    LabComm and waits for the response. When the response is decoded, the
+    set_result function should be called which makes the blocked call return.
+    """
+
+    def __init__(self, srv, client):
+        self.srv = srv
+        self.client = client
+        self.signal = threading.Event()
+        self.lock = threading.Lock()
+        with self.client.enc_lock:
+            self.client.enc.add_decl(slmap[self.srv][0].signature)
+        self.res = None
+
+    def set_result(self, res, sig):
+        args = []
+        for name, typ in sig.decl.field:
+            if not name == '__dummy__': # Ugly fix for labcomm weirdness.
+                args.append(getattr(res, name))
+
+        self.res = service_types_py[self.srv]._response_class(*args)
+        self.signal.set()
+
+    def __call__(self, data):
+        with self.lock: # For now, only allow one caller at the time.
+            # Find LC type
+            typ = slmap[self.srv][0]
+
+            try:
+                self.client.send_sample(data, typ.signature)
+                self.signal.wait()
+                self.signal.clear()
+                return self.res
+            except socket.error:
+                # TODO: Shut down Service object.
+                return None
+
+
+service_publishers = {}
 class ClientThread(threading.Thread):
     """Client thread class.
 
@@ -269,6 +320,17 @@ class ClientThread(threading.Thread):
         self.enc_lock = threading.Lock()
         self.subscribed_conversions = {} # pt -> conv
         self.published_conversions = {} # pt -> conv
+        self.ongoing_service_calls = {} # srv name -> dict
+
+        import_srvs = [srv for name,srv in conf.SERVICES.iteritems()
+                           if srv['direction'] == 'import' and
+                           name not in service_publishers]
+        for srv in import_srvs:
+            n = srv['name']
+            print n
+            cb = ServiceCallback(n, self)
+            self.ongoing_service_calls[srv['type']] = cb
+            service_publishers[n] = rospy.Service(n, service_types_py[n], cb)
 
         if static_dict:
             for pubsub,topics in static_dict.iteritems():
@@ -294,13 +356,13 @@ class ClientThread(threading.Thread):
             name = field[0]
             setattr(var, name, getattr(data, name))
         try:
-            self.send_sample(var)
+            self.send_sample(var, var.signature)
         except socket.error:
             self.subs[topic].unregister()
 
-    def send_sample(self, var):
+    def send_sample(self, var, sig):
         with self.enc_lock:
-            self.enc.encode(var, var.signature)
+            self.enc.encode(var, sig)
 
     def _handle_subscribe(self, sub, sig):
         """Handles incoming subscribe request from the client."""
@@ -351,7 +413,6 @@ class ClientThread(threading.Thread):
         else:
             rospy.logwarn('did not publish on topic %s', topic)
 
-
     def _handle_service(self, val, sig):
         """Handles incoming service call requests.
 
@@ -362,7 +423,12 @@ class ClientThread(threading.Thread):
         srvname = id2msg(sig.name[:-4])
         rospy.loginfo('Got service call for: %s', srvname)
 
-        if srvname in conf.SERVICES:
+        if srvname in self.ongoing_service_calls:
+            rospy.loginfo('Got response from non-ROS service: %s', srvname)
+
+            cb = self.ongoing_service_calls[srvname]
+            cb.set_result(val, sig)
+        elif srvname in conf.SERVICES.keys():
             rospy.loginfo('Accepted service call for: %s', srvname)
 
             types = slmap[srvname]
@@ -378,11 +444,11 @@ class ClientThread(threading.Thread):
                     name = field[0]
                     setattr(var, name, getattr(data, name))
 
-                rospy.loginfo('Sending data (from service %s): %s', srvname, var)
+                # Send data back to client.
                 with instance.enc_lock:
                     instance.enc.encode(var, var.signature)
 
-            ServiceWorker(srvname, val, sig, service_callback,
+            ServiceWorker(conf.SERVICES[srvname], val, sig, service_callback,
                           (srvname, self)).start()
         else:
             rospy.logwarn('Got service call not in configuration file: %s',

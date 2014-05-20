@@ -461,8 +461,8 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     write_once(clientf, client_class_include, 'topic_type', tmp)
 
     # Write one include per service type needed.
-    write_once(clientf, '#include "{name}.h"\n', 'name',
-               service_types.itervalues())
+    tmp = [srv['type'] for srv in service_types.itervalues()]
+    write_once(clientf, '#include "{name}.h"\n', 'name', tmp)
 
     # Include custom conversion code.
     tmp = [basename(c.py_path) for c in conversions]
@@ -539,7 +539,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     for service, srv_type in service_types.iteritems():
         lc_name = msg2id(service)
         lc_ret_type = lc_name + SRV_RET_SUFFIX
-        cpp_type = srv_type.replace('/', '::')
+        cpp_type = srv_type['type'].replace('/', '::')
         clientf.write(client_ros_service_members.format(srv_name=lc_name,
                                                         cpp_type=cpp_type))
 
@@ -639,13 +639,13 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         lc_name = msg2id(service)
         lc_par_type = lc_name + SRV_PAR_SUFFIX
         lc_ret_type = lc_name + SRV_RET_SUFFIX
-        cpp_type = srv_type.replace('/', '::')
+        cpp_type = srv_type['type'].replace('/', '::')
         clientf.write(service_call_func.format(lc_name=lc_name,
                                                lc_par_type=lc_par_type,
                                                lc_ret_type=lc_ret_type,
                                                cpp_type=cpp_type,
                                                ros_name=service))
-        definition = service_defs[srv_type]
+        definition = service_defs[srv_type['type']]
         convert_type(clientf, definition[0], 'to_ros', lc_ptr=False,
                      ros_ptr=False, ros_varname='msg->request', lc_varname='s')
         clientf.write(service_call_start_thread.format(lc_name=lc_name))
@@ -839,12 +839,13 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
             convf.write(lc2ros_cb_fn_end.format(topic_name=name))
 
     # Write LabComm callbacks that converts to ROS msgs.
-    for service, ros_type in service_types.iteritems():
-        definition = service_defs[ros_type]
+    for service, srv_type in service_types.iteritems():
+        typ = srv_type['type']
+        definition = service_defs[typ]
         lc_name = msg2id(service)
         lc_par_type = lc_name + SRV_PAR_SUFFIX
         lc_ret_type = lc_name + SRV_RET_SUFFIX
-        cpp_type = ros_type.replace('/', '::')
+        cpp_type = typ.replace('/', '::')
         convf.write(service_call_callback_begin.format(lc_name=lc_name,
                                                        srv_name=service,
                                                        lc_par_type=lc_par_type,
