@@ -246,8 +246,6 @@ class ServiceWorker(threading.Thread):
     def run(self):
         args = []
         for name, typ in self.sign.decl.field:
-            if name == '__dummy__': # Ugly fix for labcomm weirdness.
-                continue
             args.append(getattr(self.params, name))
         rospy.wait_for_service(self.srv['name'])
 
@@ -275,8 +273,7 @@ class ServiceCallback(object):
     def set_result(self, res, sig):
         args = []
         for name, typ in sig.decl.field:
-            if not name == '__dummy__': # Ugly fix for labcomm weirdness.
-                args.append(getattr(res, name))
+            args.append(getattr(res, name))
 
         self.res = service_types_py[self.srv]._response_class(*args)
         self.signal.set()

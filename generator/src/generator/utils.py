@@ -176,14 +176,12 @@ def convert_service_def(nam, defn, f):
     if defn[0]:
         convert_msg_body(defn[0], '%s' % pnam, f);
     else:
-        f.write('typedef dummy %s;\n\n' % msg2id(pnam))
-        # f.write('typedef void %s;\n\n' % msg2id(pnam))
+        f.write('typedef void %s;\n\n' % msg2id(pnam))
 
     if defn[1]:
         convert_msg_body(defn[1], '%s' % rnam, f);
     else:
-        f.write('typedef dummy %s;\n\n' % msg2id(rnam))
-        # f.write('typedef void %s;\n\n' % msg2id(rnam))
+        f.write('typedef void %s;\n\n' % msg2id(rnam))
 
 
 def longest_id(itr):
@@ -205,7 +203,6 @@ def write_lc(topics, defs, services, service_defs, f):
     f.write('''
 typedef struct { int secs; int nsecs; } time;        /* ROS primitive */
 typedef struct { int secs; int nsecs; } duration;    /* ROS primitive */
-typedef struct { byte __dummy__; } dummy; /* TODO: Remove when vx is merged into master */
 ''')
 
     # Message types
