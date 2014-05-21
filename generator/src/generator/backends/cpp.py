@@ -618,7 +618,6 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
 
     static_conns_setup = '''
 		active_topics.insert("{name}");
-		std::cout << "{name}" << std::endl;
 '''
 
     for conn in stat_conns:
