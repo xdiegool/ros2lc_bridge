@@ -39,6 +39,7 @@ service_types_py = {} # Topic -> Python class
 services = {} # Topic -> ROS ServiceProxy
 slmap = {} # Topic -> LabComm class
 for name,srv in conf.SERVICES.iteritems():
+    name = msg2id(name)
     # Save service type (Python)
     pkg = subtyp = ''
     tmp = srv['type'].split('/')
@@ -56,13 +57,14 @@ for name,srv in conf.SERVICES.iteritems():
 
     # Save the service proxy object
     if srv['direction'] == 'export':
-        services[name] = rospy.ServiceProxy(name, service_types_py[name])
+        services[name] = rospy.ServiceProxy(srv['name'],
+                                            service_types_py[name])
     else:
         services[name] = None
 
     # Save the service parameter and return type (LabComm)
-    labcomm_par = getattr(lc_types, msg2id(srv['type']) + '_PAR')
-    labcomm_ret = getattr(lc_types, msg2id(srv['type']) + '_RET')
+    labcomm_par = getattr(lc_types, msg2id(srv['name']) + '_PAR')
+    labcomm_ret = getattr(lc_types, msg2id(srv['name']) + '_RET')
     slmap[name] = (labcomm_par, labcomm_ret)
 
 
@@ -249,7 +251,7 @@ class ServiceWorker(threading.Thread):
             args.append(getattr(self.params, name))
         rospy.wait_for_service(self.srv['name'])
 
-        res = services[self.srv['name']](*args)
+        res = services[msg2id(self.srv['name'])](*args)
         self.callback(res, self.callback_data)
 
 
@@ -267,7 +269,7 @@ class ServiceCallback(object):
         self.signal = threading.Event()
         self.lock = threading.Lock()
         with self.client.enc_lock:
-            self.client.enc.add_decl(slmap[self.srv][0].signature)
+            self.client.enc.add_decl(slmap[msg2id(self.srv)][0].signature)
         self.res = None
 
     def set_result(self, res, sig):
@@ -275,13 +277,13 @@ class ServiceCallback(object):
         for name, typ in sig.decl.field:
             args.append(getattr(res, name))
 
-        self.res = service_types_py[self.srv]._response_class(*args)
+        self.res = service_types_py[msg2id(self.srv)]._response_class(*args)
         self.signal.set()
 
     def __call__(self, data):
         with self.lock: # For now, only allow one caller at the time.
             # Find LC type
-            typ = slmap[self.srv][0]
+            typ = slmap[msg2id(self.srv)][0]
 
             try:
                 self.client.send_sample(data, typ.signature)
@@ -323,11 +325,11 @@ class ClientThread(threading.Thread):
                            if srv['direction'] == 'import' and
                            name not in service_publishers]
         for srv in import_srvs:
-            n = srv['name']
-            print n
+            n = msg2id(srv['name'])
             cb = ServiceCallback(n, self)
-            self.ongoing_service_calls[srv['type']] = cb
-            service_publishers[n] = rospy.Service(n, service_types_py[n], cb)
+            self.ongoing_service_calls[n] = cb
+            service_publishers[n] = rospy.Service(srv['name'],
+                                                  service_types_py[n], cb)
 
         if static_dict:
             for pubsub,topics in static_dict.iteritems():
@@ -420,21 +422,21 @@ class ClientThread(threading.Thread):
         srvname = id2msg(sig.name[:-4])
         rospy.loginfo('Got service call for: %s', srvname)
 
-        if srvname in self.ongoing_service_calls:
+        if msg2id(srvname) in self.ongoing_service_calls:
             rospy.loginfo('Got response from non-ROS service: %s', srvname)
 
-            cb = self.ongoing_service_calls[srvname]
+            cb = self.ongoing_service_calls[msg2id(srvname)]
             cb.set_result(val, sig)
         elif srvname in conf.SERVICES.keys():
             rospy.loginfo('Accepted service call for: %s', srvname)
 
-            types = slmap[srvname]
+            types = slmap[msg2id(srvname)]
             self.enc.add_decl(types[1].signature)
 
             def service_callback(data, meta):
                 srvname, instance = meta
                 # Get response type and create an instance
-                typ = slmap[srvname][1] # 0 is req. type, 1 is resp. type
+                typ = slmap[msg2id(srvname)][1] # 0 is req. type, 1 is resp. type
                 var = typ()
                 # Copy over each field
                 for field in typ.signature.decl.field:
