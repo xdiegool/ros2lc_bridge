@@ -266,21 +266,23 @@ def resolve(cf):
     topic_types = get_topic_types(cf.imports + cf.exports) # tname -> msg type
     service_types = get_srv_types(cf.services)             # sname -> srv type
 
-    types = set()
+    types = []
     msg_defs = OrderedDict()                               # msg type -> def
     srv_defs = {}                                          # srv type -> def
     for t in service_types.itervalues():
         defn = get_srv_def(t)
         srv_defs[t['type']] = defn
-        types |= get_nested(defn[0]) | get_nested(defn[1]) - set(msg_defs.keys())
+        types.extend(list(get_nested(defn[0]) | get_nested(defn[1]) - set(srv_defs.keys())))
     for msg_type in topic_types.itervalues():
-        types.add(msg_type)
+        types.append(msg_type)
 
     while types:
-        t = types.pop()
+        t = types.pop(0)
         defn = get_msg_def(t)
+        if t in msg_defs:
+            msg_defs.pop(t)
         msg_defs[t] = defn
-        types |= get_nested(defn) - set(msg_defs.keys())
+        types.extend(list(get_nested(defn) - set(msg_defs.keys())))
 
     (tfd, tmp_lc_name) = mkstemp('.lc')
     tfil = os.fdopen(tfd, 'w')
