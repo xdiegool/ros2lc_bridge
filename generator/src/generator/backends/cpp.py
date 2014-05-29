@@ -1085,7 +1085,7 @@ def write_free(f, free_list):
 
 static_conns_begin = '''
 void LabCommBridge::setup_static()
-{{
+{
 '''
 
 static_conns_decl = '''
@@ -1105,7 +1105,9 @@ static_conns_content = '''
 '''
 
 def write_statics(f, pkg_name, static_connections):
-    f.write(static_conns_begin.format(ln=len(static_connections)))
+    f.write(static_conns_begin)
+
+    # TODO: Write subclasses for static connections.
 
     if len(static_connections) > 0:
         # Write declarations.
@@ -1114,7 +1116,6 @@ def write_statics(f, pkg_name, static_connections):
         for conn in static_connections:
             addr = conn.split(':')[0]
             port = conn.split(':')[1]
-
             f.write(static_conns_content.format(addr=addr,port=port))
 
     f.write(end_fn)
