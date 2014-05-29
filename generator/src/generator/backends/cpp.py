@@ -175,6 +175,21 @@ setup_imports_dec_reg = '''
 				(void (*)(void *, void *)) {name}_lc_callback, this);
 '''
 
+setup_services_begin = '''
+	void setup_services(struct firefly_channel_types *types) {
+'''
+
+setup_services_enc = '''
+		firefly_channel_types_add_encoder_type(types,
+			labcomm_encoder_register_{lc_ns}_{name}_RET);
+'''
+
+setup_services_dec = '''
+		firefly_channel_types_add_decoder_type(types,
+			(labcomm_decoder_register_function)labcomm_decoder_register_{lc_ns}_{name}_PAR,
+			(void (*)(void *, void *)) handle_srv_{name}, this);
+'''
+
 subscriber_cb_fn_begin = '''
 void client::{topic_name}_ros_callback(const {topic_type}::ConstPtr& msg)
 {{
@@ -599,18 +614,11 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                                                        lc_ns='lc_types'))
     clientf.write('\t' + end_fn)
 
-    clientf.write('\n\tvoid setup_services(struct firefly_channel_types *types) {\n')
+    clientf.write(setup_services_begin)
     for service in service_types:
         name = msg2id(service)
-        clientf.write(('\t\tfirefly_channel_types_add_encoder_type(types,\n'
-                       '\t\t\tlabcomm_encoder_register_{lc_ns}_{name}_RET);\n')
-                       .format(lc_ns='lc_types',name=name))
-# '\t\tlabcomm_decoder_register_lc_types_{name}_PAR(dec, handle_srv_{name}, this);\n'
-
-        clientf.write(('\t\tfirefly_channel_types_add_decoder_type(types,\n'
-				       '(labcomm_decoder_register_function)labcomm_decoder_register_{lc_ns}_{name}_PAR,\n'
-				       '(void (*)(void *, void *)) handle_srv_{name}, this);\n')
-                       .format(lc_ns='lc_types',name=name))
+        clientf.write(setup_services_enc.format(lc_ns='lc_types',name=name))
+        clientf.write(setup_services_dec.format(lc_ns='lc_types',name=name))
     clientf.write('\t' + end_fn)
 
     # Write setup for static connections.
