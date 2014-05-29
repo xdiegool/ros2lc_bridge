@@ -1093,12 +1093,11 @@ static_conns_decl = '''
 	int res;
 '''
 
-# TODO: Cast int to void * is impl. defined, find a better way.
 static_conns_content = '''
 	conn = firefly_transport_connection_udp_posix_new(llp, "{addr}", {port},
 					FIREFLY_TRANSPORT_UDP_POSIX_DEFAULT_TIMEOUT);
 
-	res = firefly_connection_open(&actions, NULL, eq, conn, (void *) 1);
+	res = firefly_connection_open(&actions, NULL, eq, conn, (void *) conn);
 	if (res < 0) {{
 		throw new std::runtime_error("ERROR: Opening static connection.");
 	}}
