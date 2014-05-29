@@ -104,14 +104,18 @@ class ConfigFile(object):
                         addr = gchild.attrib['addr']
                         self.static[addr] = {
                             'subscribe': [],
-                            'publish': []
-                            }
+                            'publish': [],
+                            'service': []
+                        }
                         for ggchild in gchild:
                             if ggchild.tag == 'subscribe':
                                 self.static[addr]['subscribe'].append(
                                     ggchild.attrib['name'])
                             elif ggchild.tag == 'publish':
                                 self.static[addr]['publish'].append(
+                                    ggchild.attrib['name'])
+                            elif ggchild.tag == 'service':
+                                self.static[addr]['service'].append(
                                     ggchild.attrib['name'])
             elif child.tag == 'conversions':
                 for gchild in child:
