@@ -1,0 +1,16 @@
+<bridge name="static_bridge" port="7357">
+  <imports>
+    <topic name="/ping" />
+  </imports>
+
+  <exports>
+	<topic name="/pong" />
+  </exports>
+
+  <static-connections>
+    <target addr="127.0.0.1:8080">
+      <subscribe name="/pong" />
+	  <publish name="/ping" />
+    </target>
+  </static-connections>
+</bridge>

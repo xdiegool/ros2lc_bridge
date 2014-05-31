@@ -2,6 +2,8 @@
 
 #include <labcomm.h>
 
+#include "gen_bridge.cpp"
+
 static void subscribe_callback(proto_subscribe *v, void *ctx)
 {
 	((client *) ctx)->handle_subscribe(v);
@@ -115,21 +117,24 @@ void conn_opened(struct firefly_connection *conn)
 
 	old_ctx = firefly_connection_get_context(conn);
 
-	/* Create new client and attach it to the connection. */
-	c = new client(n);
-	firefly_connection_set_context(conn, c);
-	clients->push_back(c);
-
 	init_signatures();
 
-	/* If old_ctx is != NULL, this is a static connection. */
 	if (old_ctx) {
+		// This is a static connection and old_ctx is the already existing
+		// client subclass.
+		c = (client *) old_ctx;
 		c->setup_imports(&types);
 		c->setup_exports(&types);
 		c->setup_services(&types);
 
-		/* Open a channel to the other side. */
+		// Open a channel to the other side.
 		firefly_channel_open_auto_restrict(conn, types);
+	} else {
+		// Otherwise this is a dynamic connection so create new client and
+		// attach it to the connection.
+		c = new client(n);
+		firefly_connection_set_context(conn, c);
+		clients->push_back(c);
 	}
 }
 
@@ -168,5 +173,3 @@ int main(int argc, char** argv)
 
 	return 0;
 }
-
-#include "gen_bridge.cpp"

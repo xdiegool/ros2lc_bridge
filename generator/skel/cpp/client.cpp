@@ -6,13 +6,11 @@
 #include <string>
 
 client::client(ros::NodeHandle *n)
-	: n(n),
-	  enc_lock(),
+	: enc_lock(),
+	  n(n),
 	  active_topics(),
 	  close(true)
-{
-	setup_static();
-}
+{ }
 
 client::~client()
 {

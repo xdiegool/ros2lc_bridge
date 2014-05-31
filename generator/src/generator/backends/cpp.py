@@ -106,10 +106,12 @@ static void handle_srv_{lc_name}(lc_types_{lc_par_type} *s, void* v);
 
 client_class_begin = '''
 class client {
-	ros::NodeHandle *n;
 	struct labcomm_decoder *dec;
 	struct labcomm_encoder *enc;
 	boost::mutex enc_lock;
+
+protected:
+	ros::NodeHandle *n;
 	std::set<std::string> active_topics;
 
 public:
@@ -138,7 +140,7 @@ client_ros_publisher_member = '''
 
 client_functions = '''
 	client(ros::NodeHandle *n);
-	~client();
+	virtual ~client();
 
 	void set_encoder(struct labcomm_encoder *enc);
 	void set_decoder(struct labcomm_decoder *dec);
@@ -146,23 +148,20 @@ client_functions = '''
 	void handle_subscribe(proto_subscribe *subs);
 	void handle_publish(proto_publish *pub);
 
-	void setup_exports(struct firefly_channel_types *types) {
+	virtual void setup_exports(struct firefly_channel_types *types) {
 '''
 
 client_subscribe_reg = '''
-		{topic_name}Sub = n->subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, this);
+		{topic_name}Sub = n->subscribe("{ros_topic_name}", 1, &client::{topic_name}_ros_callback, {cast}this);
 '''
+
 client_enc_reg = '''
 		firefly_channel_types_add_encoder_type(types,
 			labcomm_encoder_register_{lc_ns}_{name});
 '''
 
-client_stat_begin = '''
-	void setup_static() {
-'''
-
 setup_imports_pub_begin = '''
-	void setup_imports(struct firefly_channel_types *types) {
+	{virtual}void setup_imports(struct firefly_channel_types *types) {{
 '''
 
 setup_imports_pub = '''
@@ -176,7 +175,7 @@ setup_imports_dec_reg = '''
 '''
 
 setup_services_begin = '''
-	void setup_services(struct firefly_channel_types *types) {
+	{virtual}void setup_services(struct firefly_channel_types *types) {{
 '''
 
 setup_services_enc = '''
@@ -425,6 +424,94 @@ def in_custom(topic, conversions):
     return -1,None
 
 
+def _extract_lc_ns(lc, suf):
+    return basename(lc).replace('.lc', suf)
+
+
+def _write_exports(f, exports, conversions, cast=''):
+    '''Private helper function to write the encoder registrations and ROS
+    subscriptions (i.e. data from ROS to LC).
+
+    :param f: the file to write to.
+    :param exports: the list of topics to export.
+    :param conversions: the dict of custom conversions (if any).
+    :param cast: possible cast (only used when static client classes are
+    instatiated).
+    '''
+    reg_written = set()
+    for topic in exports:
+        if topic in reg_written:
+            continue
+        i, custom = in_custom(topic, conversions)
+        if custom:
+            lc_ns = _extract_lc_ns(custom.lc_path, '')
+            for t in custom.topic_srcs:
+                reg_written.add(t)
+                f.write(client_subscribe_reg.format(topic_name=msg2id(t),
+                                                    cast=cast,
+                                                    ros_topic_name=t))
+            for s in custom.sample_dsts:
+                f.write(client_enc_reg.format(lc_ns=lc_ns, name=s[0]))
+        else:
+            lc_topic = msg2id(topic)
+            f.write(client_subscribe_reg.format(topic_name=lc_topic,
+                                                cast=cast,
+                                                ros_topic_name=topic))
+            f.write(client_enc_reg.format(lc_ns='lc_types', name=lc_topic))
+    f.write('\t' + end_fn + '\n')
+
+
+def _write_imports(f, imports, conversions, topics_types):
+    '''Private helper function to write the decoder registrations and ROS
+    publications (i.e. data from ROS to LC).
+
+    :param f: the file to write to.
+    :param imports: the list of topics to import.
+    :param conversions: the dict of custom conversions (if any).
+    :param topic_types: the dict of types for each topic.
+    '''
+    reg_written = set()
+    for topic in imports:
+        if topic in reg_written:
+            continue
+        i, custom = in_custom(topic, conversions)
+        if custom:
+            lc_ns = _extract_lc_ns(custom.lc_path, '')
+            for t in custom.topic_dsts:
+                reg_written.add(t)
+                topic_type = topics_types[t].replace('/', '::')
+                f.write(setup_imports_pub.format(topic_name=msg2id(t),
+                                                 topic_type=topic_type,
+                                                 topic=t))
+            for s in custom.sample_srcs:
+                f.write(setup_imports_dec_reg.format(lc_ns=lc_ns,
+                                                     lc_name=msg2id(s[0]),
+                                                     name=msg2id(s[1])))
+        else:
+            name = msg2id(topic)
+            # Get corresponding C++ type.
+            topic_type = topics_types[topic].replace('/', '::')
+            f.write(setup_imports_pub.format(topic_name=name,
+                                             topic_type=topic_type,
+                                             topic=topic))
+            f.write(setup_imports_dec_reg.format(name=name,
+                                                 lc_name=name,
+                                                 lc_ns='lc_types'))
+    f.write('\t' + end_fn)
+
+def _write_service_regs(f, service_types, lc_ns='lc_types'):
+    '''Private helper function to write the decoder and encoder registrations and ROS
+    service proxies.
+
+    :param f: the file to write to.
+    :param service_types: the list of services to write.
+    '''
+    for service in service_types:
+        name = msg2id(service)
+        f.write(setup_services_enc.format(lc_ns=lc_ns,name=name))
+        f.write(setup_services_dec.format(lc_ns=lc_ns,name=name))
+    f.write('\t' + end_fn)
+
 def write_conv(clientf, convf, pkg_name, imports, exports,
                topics_types, service_types, service_defs, conversions, stat_conns):
     '''Writes the definition of the client class as well as conversion code.
@@ -461,14 +548,11 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                 tmp[key] = i
                 f.write(fmt.format(**tmp))
 
-    def extract_lc_ns(lc, suf):
-        return basename(lc).replace('.lc', suf)
-
     # Write define stuff
     clientf.write(client_file_begin.format(pkg_name=pkg_name))
 
     # Write one include per custom conversion type.
-    tmp = [extract_lc_ns(c.lc_path, '.h') for c in conversions]
+    tmp = [_extract_lc_ns(c.lc_path, '.h') for c in conversions]
     write_once(clientf, 'extern "C" {{\n#include "{f}"\n}}\n', 'f', tmp)
 
     # Write one include per msg type needed.
@@ -493,7 +577,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
                                                         lc_ns='lc_types',
                                                         type_name=topic_name))
         else: # Custom conversion
-            lc_ns = extract_lc_ns(custom.lc_path, '')
+            lc_ns = _extract_lc_ns(custom.lc_path, '')
             for t in custom.sample_srcs:
                 # t[0] is sample type, t[1] is pseudo-topic
                 if t[1] in decl_written:
@@ -534,7 +618,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         # pointers to arrays so we basically have to add a deep-copy function
         # to the LabComm compiler to get this to work.)
         for s in c.sample_srcs:
-            lc_ns = extract_lc_ns(c.lc_path, '')
+            lc_ns = _extract_lc_ns(c.lc_path, '')
             ptopic = msg2id(s[1])
             clientf.write(client_conv_member.format(type_name=lc_ns+'_'+s[0],
                                                     name=ptopic+'_val'))
@@ -562,81 +646,14 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
     clientf.write(client_functions)
 
     # Write ROS subscriptions and LabComm registrations (i.e. ROS->LC stuff).
-    reg_written = set()
-    for topic in exports:
-        if topic in reg_written:
-            continue
-        i, custom = in_custom(topic, conversions)
-        if custom:
-            lc_ns = extract_lc_ns(custom.lc_path, '')
-            for t in custom.topic_srcs:
-                reg_written.add(t)
-                clientf.write(client_subscribe_reg.format(topic_name=msg2id(t),
-                                                          ros_topic_name=t))
-            for s in custom.sample_dsts:
-                clientf.write(client_enc_reg.format(lc_ns=lc_ns, name=s[0]))
-        else:
-            lc_topic = msg2id(topic)
-            clientf.write(client_subscribe_reg.format(topic_name=lc_topic,
-                                                      ros_topic_name=topic))
-            clientf.write(client_enc_reg.format(lc_ns='lc_types',
-                                                name=lc_topic))
+    _write_exports(clientf, exports, conversions)
 
-    clientf.write('\t' + end_fn)
+    # Write ROS publications and LabComm registrations (i.e. LC->ROS stuff).
+    clientf.write(setup_imports_pub_begin.format(virtual='virtual '))
+    _write_imports(clientf, imports, conversions, topics_types)
 
-    clientf.write(setup_imports_pub_begin)
-    reg_written = set()
-    for topic in imports:
-        if topic in reg_written:
-            continue
-        i, custom = in_custom(topic, conversions)
-        if custom:
-            lc_ns = extract_lc_ns(custom.lc_path, '')
-            for t in custom.topic_dsts:
-                reg_written.add(t)
-                topic_type = topics_types[t].replace('/', '::')
-                clientf.write(setup_imports_pub.format(topic_name=msg2id(t),
-                                                       topic_type=topic_type,
-                                                       topic=t))
-            for s in custom.sample_srcs:
-                clientf.write(setup_imports_dec_reg.format(lc_ns=lc_ns,
-                                                           lc_name=msg2id(s[0]),
-                                                           name=msg2id(s[1])))
-        else:
-            name = msg2id(topic)
-            # Get corresponding C++ type.
-            topic_type = topics_types[topic].replace('/', '::')
-            clientf.write(setup_imports_pub.format(topic_name=name,
-                                                   topic_type=topic_type,
-                                                   topic=topic))
-            clientf.write(setup_imports_dec_reg.format(name=name,
-                                                       lc_name=name,
-                                                       lc_ns='lc_types'))
-    clientf.write('\t' + end_fn)
-
-    clientf.write(setup_services_begin)
-    for service in service_types:
-        name = msg2id(service)
-        clientf.write(setup_services_enc.format(lc_ns='lc_types',name=name))
-        clientf.write(setup_services_dec.format(lc_ns='lc_types',name=name))
-    clientf.write('\t' + end_fn)
-
-    # Write setup for static connections.
-    clientf.write(client_stat_begin)
-
-    static_conns_setup = '''
-		active_topics.insert("{name}");
-'''
-
-    for conn in stat_conns:
-        subs = stat_conns[conn]['subscribe']
-        pubs = stat_conns[conn]['publish']
-
-        # Populate subscriber list.
-        for pubsub in subs + pubs:
-            clientf.write(static_conns_setup.format(name=pubsub))
-
-    clientf.write(end_fn);
+    clientf.write(setup_services_begin.format(virtual='virtual '))
+    _write_service_regs(clientf, service_types)
 
     # Write end-of-class.
     clientf.write(class_end)
@@ -658,7 +675,7 @@ def write_conv(clientf, convf, pkg_name, imports, exports,
         clientf.write(service_call_start_thread.format(lc_name=lc_name))
 
     def write_custom_out(f, topicsample, is_topic, num, custom):
-        lc_ns = extract_lc_ns(custom.lc_path, '')
+        lc_ns = _extract_lc_ns(custom.lc_path, '')
         tmp = ''
         if is_topic:
             tmp = topicsample
@@ -1083,6 +1100,18 @@ def write_free(f, free_list):
         else:
             f.write('\tfree({name});\n'.format(name=name))
 
+static_client_begin = '''
+class client_{suffix} : public client {{
+public:
+	client_{suffix}(ros::NodeHandle *n)
+		: client(n)
+	{{
+		setup_static();
+	}}
+
+	void setup_exports(struct firefly_channel_types *types) {{
+'''
+
 static_conns_begin = '''
 void LabCommBridge::setup_static()
 {
@@ -1091,31 +1120,68 @@ void LabCommBridge::setup_static()
 static_conns_decl = '''
 	struct firefly_transport_connection *conn;
 	int res;
+	client *c;
 '''
 
 static_conns_content = '''
+	c = new client_{suffix}(n);
 	conn = firefly_transport_connection_udp_posix_new(llp, "{addr}", {port},
 					FIREFLY_TRANSPORT_UDP_POSIX_DEFAULT_TIMEOUT);
 
-	res = firefly_connection_open(&actions, NULL, eq, conn, (void *) conn);
+	res = firefly_connection_open(&actions, NULL, eq, conn, (void *) c);
 	if (res < 0) {{
 		throw new std::runtime_error("ERROR: Opening static connection.");
 	}}
 '''
 
-def write_statics(f, pkg_name, static_connections):
+static_conns_activate_begin = '''
+	void setup_static() {
+'''
+
+static_conns_activate_topic = '''
+		active_topics.insert("{name}");
+'''
+
+def write_statics(f, pkg_name, static_connections, topics_types, conversions):
+
+    def _parse_addr(addr):
+        ip = addr.split(':')[0]
+        port = addr.split(':')[1]
+        suf = ip.replace('.', '_') + '_' + port
+
+        return ip, port, suf
+
+    for addr, stat in static_connections.iteritems():
+        _, _, suf = _parse_addr(addr)
+
+        # Write export registrations.
+        f.write(static_client_begin.format(suffix=suf))
+        _write_exports(f, stat['subscribe'], conversions, cast='(client *)')
+
+        # Write import registrations.
+        f.write(setup_imports_pub_begin.format(virtual=''))
+        _write_imports(f, stat['publish'], conversions, topics_types)
+
+        # Write service registrations.
+        f.write(setup_services_begin.format(virtual=''))
+        _write_service_regs(f, stat['service'])
+
+        # Write automatic activation code of topics for static connections.
+        f.write(static_conns_activate_begin)
+        for pubsub in stat['subscribe'] + stat['publish']:
+            f.write(static_conns_activate_topic.format(name=pubsub))
+        f.write(end_fn);
+
+        f.write(end_fn + ';\n') # end of class
+
     f.write(static_conns_begin)
-
-    # TODO: Write subclasses for static connections.
-
     if len(static_connections) > 0:
         # Write declarations.
         f.write(static_conns_decl)
 
         for conn in static_connections:
-            addr = conn.split(':')[0]
-            port = conn.split(':')[1]
-            f.write(static_conns_content.format(addr=addr,port=port))
+            ip, port, suf = _parse_addr(conn)
+            f.write(static_conns_content.format(addr=ip,port=port,suffix=suf))
 
     f.write(end_fn)
 
@@ -1145,7 +1211,7 @@ def run(conf, ws, force):
     # C++ static connections.
     (statfd, statnam) = mkstemp('.cpp')
     statfil = os.fdopen(statfd, 'w')
-    write_statics(statfil, cf.name, cf.static)
+    write_statics(statfil, cf.name, cf.static, topics_types, cf.conversions)
     statfil.close()
 
     return create_pkg(ws, cf.name, deps, force, tnam, cnam, convnam, clientnam,
