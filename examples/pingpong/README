@@ -1,11 +1,12 @@
 DEPENDENCIES
 
-	If you wish to run the C++ version of the bridge, there are a couple of
-	dependencies that must be installed first. The README file in the root of
-	the repository describes how to do this. Please note that much of the
-	information in that README is outdated (it is in the process of being
-	updated) but the DEPENDENCIES section is still relevant. Also note that
-	these dependencies are NOT relevant for the Python version.
+    If you wish to run the C++ version of the bridge, there are a couple of
+    dependencies that must be installed first. The README file in the root of
+    the repository describes how to do this. Please note that much of the
+    information in that README is outdated (it is in the process of being
+    updated) but the DEPENDENCIES section is still relevant. Also note that
+    only the part of the dependencies about LabComm is relevant for the Python
+    version.
 
 
 RUNNING EXAMPLE
@@ -17,10 +18,10 @@ RUNNING EXAMPLE
         $ cd examples/pingpong/ros_pingpong && make
         $ ./src/ros_pingpong/main.py
 
-	Next, the bridge should be generated. This is slightly different whether
-	you wish to run the Python or C++ version of the example. The Python client
-	is in the lc_pingpong directory and the C++ one is in the ff_pingpong
-	directory. To generate a bridge compatible with the Python example:
+    Next, the bridge should be generated. This is slightly different whether
+    you wish to run the Python or C++ version of the example. The Python client
+    is in the lc_pingpong directory and the C++ one is in the ff_pingpong
+    directory. To generate a bridge compatible with the Python example:
 
         $ rosrun generator generator.py -l python -c bridge/conf.xml
 
@@ -28,25 +29,25 @@ RUNNING EXAMPLE
 
         $ rosrun generator generator.py -l cpp -c bridge/conf.xml
 
-	The generator prints where the bridge was placed as the last line of its
-	output (before the output from the ROS build tool).
+    The generator prints where the bridge was placed as the last line of its
+    output (before the output from the ROS build tool).
 
         $ cd <reported-path-to-bridge> # ~/src/pingpong_bridge for me
 
-	If you generated the Python version, run:
+    If you generated the Python version, run:
 
         $ ./src/main.py
-	
-	to start the bridge. If you generated the C++ version, run:
 
-		$ ./bin/main
+    to start the bridge. If you generated the C++ version, run:
+
+        $ ./bin/main
 
     Lastly, we should run the client. For the Python client, run:
 
-		$ cd examples/pingpong/lc_pingpong && make
-		% ./src/main.py
+        $ cd examples/pingpong/lc_pingpong && make
+        % ./src/main.py
 
-	For the C++ client, run:
+    For the C++ client, run:
 
         $ cd examples/pingpong/ff_pingpong && make
         $ ./pingpong
