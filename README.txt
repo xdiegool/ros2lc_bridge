@@ -1,3 +1,14 @@
+!!! OUTDATED (will be updated shortly) !!!
+
+
+
+
+
+
+
+
+
+
                            ROS2LS_BRIDGE GENERATOR
 
 					 Erik Jansson <erikjansson90@gmail.com>
