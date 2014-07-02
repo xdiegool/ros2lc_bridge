@@ -59,13 +59,11 @@ DEPENDENCIES
     http://git.cs.lth.se/robotlab/labcomm-core. LabComm consists of two parts,
     a compiler and libraries for different languages. To install LabComm,
     change to some directory where you have write permissions (I use ~/src)
-    and clone the repository. You also have to checkout the vx branch in the
-    LabComm repository since it depends on some new features there.
+    and clone the repository.
 
         $ cd ~/src
         $ git clone http://git.cs.lth.se/robotlab/labcomm-core.git labcomm
         $ cd labcomm
-        $ git checkout -b vx --track origin/vx     # or just `git checkout vx`
 
     Unfortunately, Labcomm doesn't have much documentation available in
     the repository. Here are some simple steps that should allow you to
@@ -101,15 +99,20 @@ DEPENDENCIES
         $ cd firefly
         $ git checkout -b vxworks --track origin/vxworks
 
-    Firefly needs cmake to build (which probably should be installed already
-    on Ubuntu). The steps for building is fairly simple:
+    Firefly needs cmake to build (which probably should be installed
+    already on Ubuntu).  Cmake looks for the environment variable
+    LABCOMM to find the LabComm root. Put the following in your
+    ~/.bashrc and source it.
+
+        $ export LABCOMM=~/src/labcomm
+
+    Then the steps for building is fairly simple:
 
         $ mkdir build && cd build   # in the firefly repository root
         $ cmake ../src              # look for "Found LABCOMM" in the output!
         $ make
 
-    If LabComm wasn't found, go back and check that you put both repositories
-    next to each other in a directory. The result of the build should be a
+    The result of the build should be a
     couple of lib*.a files. The library is modularized so the core of the
     library is in libfirefly.a while the different transport layers are in
     libtransport-{1}-{2}.a where {1} is the transport protocol and {2} is the
