@@ -1,18 +1,23 @@
-#!/usr/bin/env python
+"""Classes and methods for parsing the configuration file."""
 
 from os.path import abspath, dirname, join, basename, splitext
 import xml.etree.ElementTree as ET
 
 
 class ConfigException(Exception):
+    """Thrown when an error with the configuration file is detected."""
     pass
 
 
 def _bn(name):
+    """Returns the base name of a file without the file extension."""
     return splitext(basename(name))[0]
 
 
 class Conversion(object):
+    """Represents a conversion in the configuration file."""
+    # pylint: disable=R0902
+
     def __init__(self):
         self.lc_path = None
         self.py_path = None
@@ -24,6 +29,7 @@ class Conversion(object):
         self.topic_dsts = []
 
     def tuple_repr(self):       # Easily printable...
+        """Get a tuple representation of the conversion object."""
         # ('/tmp/fake.py', 'ft_split', [], ['force_torque'],
         #  [], [], { 'type': 'periodic', 'period': 1.0})
 
@@ -35,6 +41,7 @@ class Conversion(object):
 
 class ConfigFile(object):
     """Represents a bridge configuration file."""
+    # pylint: disable=R0902
 
     def __init__(self, fnam, rewrite=False):
         self.fnam = fnam
@@ -60,6 +67,7 @@ class ConfigFile(object):
 
     def _read(self, fnam):
         """Reads a config file according to 'test/conf.xml'."""
+        # pylint: disable=R0912,R0915,C0301
         tree = ET.parse(fnam)
         root = tree.getroot()
         self.name = root.attrib['name']
@@ -141,29 +149,30 @@ class ConfigFile(object):
                                     if src.tag == 'topic':
                                         conv.topic_srcs.append(name)
                                     elif src.tag == 'sample':
-                                        e = (name, src.attrib['pseudotopic'])
-                                        conv.sample_srcs.append(e)
+                                        conv.sample_srcs.append((name, src.attrib['pseudotopic']))
                             elif ggchild.tag == 'destinations':
                                 for dst in ggchild:
                                     name = dst.attrib['name']
                                     if dst.tag == 'topic':
                                         conv.topic_dsts.append(name)
                                     elif dst.tag == 'sample':
-                                        e = (name, dst.attrib['pseudotopic'])
-                                        conv.sample_dsts.append(e)
+                                        conv.sample_dsts.append((name, dst.attrib['pseudotopic']))
                         self.conversions.append(conv)
 
 
     def lc_files(self):
-        b = dirname(self.fnam)  # Paths are relative to config.
-        return [abspath(join(b, c.lc_path)) for c in self.conversions]
+        """Get absolute paths to all LC files in the config."""
+        base = dirname(self.fnam)  # Paths are relative to config.
+        return [abspath(join(base, c.lc_path)) for c in self.conversions]
 
     def py_files(self):
-        b = dirname(self.fnam)  # Paths are relative to config.
-        return [abspath(join(b, c.py_path)) for c in self.conversions]
+        """Get absolute paths to all Python files in the config."""
+        base = dirname(self.fnam)  # Paths are relative to config.
+        return [abspath(join(base, c.py_path)) for c in self.conversions]
 
 
 def collect_referenced_files(conf_path):
+    """Reads the content of all files referenced in the configuration file."""
     files = {}
     conf = ConfigFile(conf_path)
     base = dirname(conf_path)
