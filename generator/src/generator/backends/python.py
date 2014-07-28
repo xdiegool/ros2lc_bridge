@@ -95,7 +95,7 @@ def create_pkg(ws, name, deps, force, lc_file, conf_file, mlc, mpy, msrv):
     return d
 
 
-def write_conf(f, bname, port, exports, imports, topics, services,
+def write_conf(f, bname, port, autopubsub, exports, imports, topics, services,
         static_conns, conversions):
     convs = []
     for conv in conversions:
@@ -104,6 +104,7 @@ def write_conf(f, bname, port, exports, imports, topics, services,
 
 PKG_NAME     = '{name}'
 PORT         = {port}
+AUTOPUBSUB   = {autopubsub}
 SLASHSUB     = '{slsub}'
 EXPORTS      = {exports}
 IMPORTS      = {imports}
@@ -116,6 +117,7 @@ CONV         = {conv}
            imports=imports,
            t_t=topics,
            port=port,
+           autopubsub=autopubsub,
            slsub=SLASHSUB,
            srvs=services,
            stat_conns=static_conns,
@@ -129,7 +131,7 @@ def run(conf, ws, force):
 
     (cfd, cnam) = mkstemp('.py')
     cfil = os.fdopen(cfd, 'w')
-    write_conf(cfil, cf.name, cf.port,
+    write_conf(cfil, cf.name, cf.port, cf.autopubsub,
                cf.exports, cf.imports, topics_types,
                services_used, cf.static, cf.conversions)
     cfil.close()

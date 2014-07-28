@@ -48,6 +48,7 @@ class ConfigFile(object):
         # General
         self.name = None
         self.port = 0
+        self.autopubsub = False
         # Topics
         self.export_all = False
         self.exports = []
@@ -72,6 +73,8 @@ class ConfigFile(object):
         root = tree.getroot()
         self.name = root.attrib['name']
         self.port = root.attrib['port']
+        if 'autopubsub' in root.attrib:
+            self.autopubsub = bool(root.attrib['autopubsub'])
         for child in root:
             if child.tag == 'exports':
                 for gchild in child:

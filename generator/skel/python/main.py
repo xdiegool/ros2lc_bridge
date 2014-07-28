@@ -19,7 +19,11 @@ def id2msg(msg_name):
 # rospy.init_node(conf.PKG_NAME)
 
 topic_types_py = {}
-for topic in conf.EXPORTS + conf.IMPORTS:
+topics_to_import = conf.EXPORTS + conf.IMPORTS
+for conv in conf.CONV:
+    topics_to_import += conv[4]
+    topics_to_import += conv[6]
+for topic in topics_to_import:
     pkg, typ = conf.TOPIC_TYPES[topic].split('/')
     tmp = __import__('%s.msg' % pkg, globals(), locals(), [typ], 0)
     cls = getattr(tmp, typ)
@@ -345,6 +349,26 @@ class ClientThread(threading.Thread):
                         self.subs[t] = rospy.Subscriber(t, topic_types_py[t],
                                                         self._convert_and_send,
                                                         callback_args=t)
+
+        if conf.AUTOPUBSUB:
+            class Dummy(object):
+                pass
+
+            print pseudotopic_sources
+            print pseudotopic_sinks
+            dummy = Dummy()
+            for topic in conf.EXPORTS:
+                dummy.topic = topic
+                self._handle_subscribe(dummy, None)
+            for topic, _ in pseudotopic_sources.iteritems():
+                dummy.topic = topic
+                self._handle_subscribe(dummy, None)
+            for topic in conf.IMPORTS:
+                dummy.topic = topic
+                self._handle_publish(dummy, None)
+            for topic, _ in pseudotopic_sinks.iteritems():
+                dummy.topic = topic
+                self._handle_publish(dummy, None)
 
     def _convert_and_send(self, data, topic):
         """Converts incoming ROS msg to LC sample and encodes it."""
