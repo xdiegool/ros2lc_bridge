@@ -262,9 +262,13 @@ def sh(cmd, crit=True, echo=True, pr=True, col=normal, ocol=blue,
     return (ok, out)
 
 
-def resolve(cf):
-    topic_types = get_topic_types(cf.imports + cf.exports) # tname -> msg type
-    service_types = get_srv_types(cf.services)             # sname -> srv type
+def resolve(conf):
+    topics = conf.imports + conf.exports
+    for conv in conf.conversions:
+        topics += conv.topic_srcs
+        topics += conv.topic_dsts
+    topic_types = get_topic_types(topics) # tname -> msg type
+    service_types = get_srv_types(conf.services)             # sname -> srv type
 
     types = []
     msg_defs = OrderedDict()                               # msg type -> def
