@@ -71,7 +71,7 @@ def get_topic_types(tlist):
     have = set(ttdict.keys())
     missing = want - have
     if missing:
-        raise GeneratorException("Unknown topics(s): %s" % ', '.join(missing))
+        raise GeneratorException("Unknown topic(s) referenced: %s" % ', '.join(missing))
 
     return {to: ttdict[to] for to in (set(ttdict.keys()) & set(tlist))}
 
@@ -137,7 +137,7 @@ def get_srv_types(slist):
             srv['type'] = os.path.basename(srv['file']).replace('.srv', '')
             services[sname] = srv
     if missing:
-        raise GeneratorException("Unknown service(s): %s" % ', '.join(missing))
+        raise GeneratorException("Unknown service(s) referenced: %s" % ', '.join(missing))
     return services
 
 
