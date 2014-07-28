@@ -7,7 +7,6 @@ import socket
 import labcomm
 import threading
 import lc_types
-import os
 
 def msg2id(msg_name):
     return msg_name.replace('/', conf.SLASHSUB)
