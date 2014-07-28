@@ -77,7 +77,9 @@ def get_from_module(mod, thing):
 
 
 class Conversion(object):
-    """A manual conversion lets a user do more advanced type conversion and fan out the content of a message to multiple samples, or vice versa."""
+    """A manual conversion lets a user do more advanced type conversion and fan
+    out the content of a message to multiple samples, or vice versa.
+    """
     def __init__(self, ct):
         # Unpack
         module = ct[0]          # Name module with user spec. conv. func.
