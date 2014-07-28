@@ -361,16 +361,16 @@ class ClientThread(threading.Thread):
             dummy = Dummy()
             for topic in conf.EXPORTS:
                 dummy.topic = topic
-                self._handle_subscribe(dummy, None)
+                self._handle_subscribe(dummy)
             for topic, _ in pseudotopic_sources.iteritems():
                 dummy.topic = topic
-                self._handle_subscribe(dummy, None)
+                self._handle_subscribe(dummy)
             for topic in conf.IMPORTS:
                 dummy.topic = topic
-                self._handle_publish(dummy, None)
+                self._handle_publish(dummy)
             for topic, _ in pseudotopic_sinks.iteritems():
                 dummy.topic = topic
-                self._handle_publish(dummy, None)
+                self._handle_publish(dummy)
 
     def _convert_and_send(self, data, topic):
         """Converts incoming ROS msg to LC sample and encodes it."""
@@ -388,7 +388,7 @@ class ClientThread(threading.Thread):
         with self.enc_lock:
             self.enc.encode(var, sig)
 
-    def _handle_subscribe(self, sub, sig):
+    def _handle_subscribe(self, sub):
         """Handles incoming subscribe request from the client."""
         topic = id2msg(sub.topic)
 
@@ -413,7 +413,7 @@ class ClientThread(threading.Thread):
         else:
             rospy.logwarn('Rejected subscribe request for topic: %s', topic)
 
-    def _handle_publish(self, pub, sig):
+    def _handle_publish(self, pub):
         """Handles incoming publish request from the client."""
         topic = id2msg(pub.topic)
 
@@ -488,9 +488,9 @@ class ClientThread(threading.Thread):
                 rosname = id2msg(sig.name)
                 if val is not None: # Not as stupid as it looks.
                     if rosname == 'subscribe':
-                        self._handle_subscribe(val, sig)
+                        self._handle_subscribe(val)
                     elif rosname == 'publish':
-                        self._handle_publish(val, sig)
+                        self._handle_publish(val)
                     elif sig.name in sample_in_hooks: # TODO: Check reg.?
                         for conv in sample_in_hooks[sig.name]:
                             conv.put_sample(sig.name, val)
