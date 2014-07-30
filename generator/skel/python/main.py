@@ -16,6 +16,11 @@ def id2msg(msg_name):
     return msg_name.replace(conf.SLASHSUB, '/')
 
 
+def get_from_module(mod, thing):
+    tmp = __import__(mod, globals(), locals(), [thing], 0)
+    return getattr(tmp, thing)
+
+
 # rospy.init_node(conf.PKG_NAME)
 
 topic_types_py = {}
@@ -36,6 +41,13 @@ for topic in conf.IMPORTS + conf.EXPORTS:
     type_str = msg2id(topic)
     type_class = getattr(lc_types, type_str)
     ttmap[topic] = type_class
+for conv in conf.CONV:
+    samples_in = conv[5]
+    samples_out = conv[3]
+    module = conv[2]
+    for lc, pt in samples_in + samples_out:
+        type_class = get_from_module(module, lc)
+        ttmap[pt] = type_class
 
 
 service_types_py = {} # Topic -> Python class
@@ -69,11 +81,6 @@ for name,srv in conf.SERVICES.iteritems():
     labcomm_par = getattr(lc_types, msg2id(srv['name']) + '_PAR')
     labcomm_ret = getattr(lc_types, msg2id(srv['name']) + '_RET')
     slmap[name] = (labcomm_par, labcomm_ret)
-
-
-def get_from_module(mod, thing):
-    tmp = __import__(mod, globals(), locals(), [thing], 0)
-    return getattr(tmp, thing)
 
 
 class Conversion(object):
@@ -161,10 +168,8 @@ class Conversion(object):
         for t in self.topics_out:
             self.pubs[t].publish(vals[t])
         for s, pt in self.samples_out:
-            print "proc. %s" % pt
             for sub in self.pseudotopic_subs.get(pt, ()):
-                sub.send_sample(vals[pt], vals[pt].signature)
-                print "has sub"
+                sub.send_sample(vals[pt], ttmap[pt].signature)
 
     def register_sample_subscriber(self, pt, insn):
         if pt not in self.pseudotopic_subs:
@@ -201,7 +206,6 @@ for ct in conf.CONV:
     for t in c.topics_out:
         pass
     for s, pt in c.samples_out:
-        print "got source for", pt
         if pt not in pseudotopic_sources:
             pseudotopic_sources[pt] = []
         pseudotopic_sources[pt].append(c)
@@ -356,8 +360,6 @@ class ClientThread(threading.Thread):
             class Dummy(object):
                 pass
 
-            print pseudotopic_sources
-            print pseudotopic_sinks
             dummy = Dummy()
             for topic in conf.EXPORTS:
                 dummy.topic = topic
