@@ -1,0 +1,38 @@
+/* Generated 2015-05-27 11:27 on 'fair-2014-3' */
+
+typedef struct { int secs; int nsecs; } time;        /* ROS primitive */
+typedef struct { int secs; int nsecs; } duration;    /* ROS primitive */
+
+
+/* Message types: */
+typedef struct {
+        string name;
+        string level;
+} roscppS__Logger;
+
+
+/* Topics: */
+
+
+/* Service types: */
+typedef void roscppS__GetLoggers_PAR;
+
+typedef struct {
+        roscppS__Logger loggers[_];
+} roscppS__GetLoggers_RET;
+
+typedef struct {
+        long a;
+        long b;
+} ros2lc_example_add_two_ints_serviceS__AddTwoInts_PAR;
+
+typedef struct {
+        long sum;
+} ros2lc_example_add_two_ints_serviceS__AddTwoInts_RET;
+
+
+/* Services: */
+sample ros2lc_example_add_two_ints_serviceS__AddTwoInts_PAR S__add_two_ints_PAR;
+sample ros2lc_example_add_two_ints_serviceS__AddTwoInts_RET S__add_two_ints_RET;
+sample roscppS__GetLoggers_PAR           S__add_two_intsS__get_loggers_PAR;
+sample roscppS__GetLoggers_RET           S__add_two_intsS__get_loggers_RET;

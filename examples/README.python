@@ -1,6 +1,0 @@
-a quick note,
-
-You need to set python path to include labcomm, or run examples like, e.g.,
-
-PYTHONPATH=$LABCOMM/lib/python/:$PYTHONPATH rosrun trajectory_bridge main.py
-

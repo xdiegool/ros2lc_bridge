@@ -1,9 +1,9 @@
 !!! OUTDATED (will be updated shortly) !!!
 
 
-
-
-
+QUICK NOTE ABOUT PYTHON
+	In order to run the Python examples, you need to set your
+	$PYTHONPATH to include LabComm.
 
 
 
