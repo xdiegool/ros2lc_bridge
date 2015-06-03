@@ -4,7 +4,7 @@ import conf                     # The generated configuration.
 import roslib; roslib.load_manifest(conf.PKG_NAME)
 import rospy
 import socket
-import labcomm
+import labcomm2014
 import threading
 import lc_types
 
@@ -322,8 +322,8 @@ class ClientThread(threading.Thread):
         self.client_socket = client_sock
         client_sock.settimeout(None)
         f = client_sock.makefile('w', 0)
-        self.enc = labcomm.Encoder(labcomm.StreamWriter(f))
-        self.dec = labcomm.Decoder(labcomm.StreamReader(f))
+        self.enc = labcomm2014.Encoder(labcomm2014.StreamWriter(f))
+        self.dec = labcomm2014.Decoder(labcomm2014.StreamReader(f))
 
         self.enc_lock = threading.Lock()
         self.subscribed_conversions = {} # pt -> conv
