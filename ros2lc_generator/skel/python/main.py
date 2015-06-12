@@ -487,6 +487,8 @@ class ClientThread(threading.Thread):
         try:
             while True:
                 val, sig = self.dec.decode()
+                if not sig:
+                    continue
                 rosname = id2msg(sig.name)
                 if val is not None: # Not as stupid as it looks.
                     if rosname == 'subscribe':
