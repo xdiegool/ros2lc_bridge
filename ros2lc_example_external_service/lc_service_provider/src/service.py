@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 import socket
-import labcomm
+import labcomm2014
 import time
 
 import lc_types
@@ -21,8 +21,8 @@ def main(port):
         print 'Got connection from:', addr
 
         f = csock.makefile()
-        e = labcomm.Encoder(labcomm.StreamWriter(f))
-        d = labcomm.Decoder(labcomm.StreamReader(f))
+        e = labcomm2014.Encoder(labcomm2014.StreamWriter(f))
+        d = labcomm2014.Decoder(labcomm2014.StreamReader(f))
         e.add_decl(lc_types.S__ext_service_RET.signature)
 
         while True:

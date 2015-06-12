@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 import socket
-import labcomm
+import labcomm2014
 from lc_gen import pos_vel, proto
 from time import sleep
 import threading
@@ -20,8 +20,8 @@ def run():
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.connect((socket.gethostname(), 7357))
     f = s.makefile()
-    e = labcomm.Encoder(labcomm.StreamWriter(f))
-    d = labcomm.Decoder(labcomm.StreamReader(f))
+    e = labcomm2014.Encoder(labcomm2014.StreamWriter(f))
+    d = labcomm2014.Decoder(labcomm2014.StreamReader(f))
 
     e.add_decl(proto.subscribe.signature)
     e.add_decl(proto.publish.signature)
